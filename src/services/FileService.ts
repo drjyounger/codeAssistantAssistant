@@ -1,0 +1,178 @@
+// src/services/FileService.ts
+
+import { FileNode, ApiResponse } from '../types';
+import {
+  getLocalDirectoryTree,
+  readLocalFile,
+} from './LocalFileService';
+
+/**
+ * Directories or subdirectories to ignore
+ */
+const STANDARD_DIRS = new Set([
+  'node_modules', 'dist', 'build', '.git', '.idea', '.vscode',
+  'coverage', 'vendor', '__pycache__', 'env', 'venv'
+]);
+
+/**
+ * File extensions considered "text" for concatenation
+ */
+const TEXT_EXTENSIONS = new Set([
+  '.txt', '.md', '.py', '.js', '.html', '.css', '.json', '.xml',
+  '.yaml', '.yml', '.sh', '.bat', '.ps1', '.java', '.c', '.cpp',
+  '.h', '.hpp', '.cs', '.php', '.rb', '.go', '.rs', '.ts', '.jsx',
+  '.tsx', '.vue', '.scala', '.kt', '.groovy', '.gradle', '.sql',
+  '.gitignore', '.env', '.cfg', '.ini', '.toml', '.csv'
+]);
+
+/**
+ * Helper to decide if a given file is textual
+ */
+export const isTextFile = (filename: string): boolean => {
+  if (filename === '.cursorrules') return true;
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  return TEXT_EXTENSIONS.has(ext);
+};
+
+/**
+ * Helper to skip "standard" directories
+ */
+export const isStandardLibraryPath = (path: string): boolean => {
+  return Array.from(STANDARD_DIRS).some((dir) =>
+    path.toLowerCase().includes(`/${dir.toLowerCase()}/`)
+  );
+};
+
+/**
+ * Map file extensions to syntax highlights (for the Markdown code fence)
+ */
+export const getLanguageFromExtension = (filename: string): string => {
+  const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+  const languageMap: Record<string, string> = {
+    '.py': 'python',
+    '.js': 'javascript',
+    '.ts': 'typescript',
+    '.tsx': 'typescript',
+    '.jsx': 'javascript',
+    '.html': 'html',
+    '.css': 'css',
+    '.java': 'java',
+    '.cpp': 'cpp',
+    '.c': 'c',
+    '.rb': 'ruby',
+    '.php': 'php',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.sql': 'sql',
+  };
+  return languageMap[ext] || 'text';
+};
+
+/**
+ * getDirectoryTree
+ * Recursively fetches a local directory tree, then converts it
+ * into a FileNode structure, skipping standard directories.
+ */
+export const getDirectoryTree = async (rootPath: string): Promise<FileNode> => {
+  try {
+    // 1) Fetch the raw directory data from local
+    const rawTree = await getLocalDirectoryTree(rootPath);
+
+    // 2) Convert the data into your FileNode structure, skipping standard dirs
+    const buildTree = (entry: any): FileNode | null => {
+      // If it's a standard library path, skip it
+      if (isStandardLibraryPath(entry.path)) {
+        return null;
+      }
+
+      const node: FileNode = {
+        path: entry.path,
+        type: entry.type,
+        children: [],
+      };
+
+      if (entry.type === 'directory' && entry.children) {
+        for (const child of entry.children) {
+          const childNode = buildTree(child);
+          if (childNode) {
+            node.children?.push(childNode);
+          }
+        }
+      }
+      return node;
+    };
+
+    const treeNode = buildTree(rawTree);
+    if (!treeNode) {
+      throw new Error('Root directory is excluded or invalid');
+    }
+    return treeNode;
+  } catch (error) {
+    console.error('Error fetching local directory tree:', error);
+    throw error;
+  }
+};
+
+/**
+ * concatenateFiles
+ * For each selected path:
+ *   - read local file
+ *   - skip if not text or in standard library dir
+ *   - append to a big markdown
+ */
+export const concatenateFiles = async (
+  selectedPaths: string[],
+  prNumber: string // currently unused in the local approach
+): Promise<ApiResponse<string>> => {
+  try {
+    const timestamp = new Date().toISOString();
+    let concatenated = `# Code Review Context\n\n`;
+    concatenated += `Generated: ${timestamp}\n\n`;
+
+    // Table of contents
+    concatenated += `## Selected Files\n\n`;
+    selectedPaths.forEach((path) => {
+      concatenated += `- ${path}\n`;
+    });
+    concatenated += `\n---\n\n`;
+
+    // Process each selected file
+    for (const path of selectedPaths) {
+      if (isStandardLibraryPath(path)) {
+        continue;
+      }
+      // Example: skip non-text files
+      const filename = path.split('/').pop() || '';
+      if (!isTextFile(filename)) {
+        continue;
+      }
+
+      try {
+        // 1) Read the file content from local
+        const fileContent = await readLocalFile(path);
+        // 2) Derive language from file extension
+        const language = getLanguageFromExtension(path);
+
+        // 3) Append to concatenated markdown
+        concatenated += `## File: ${path}\n\n`;
+        concatenated += `\`\`\`${language}\n${fileContent}\n\`\`\`\n\n`;
+        concatenated += `---\n\n`;
+      } catch (error) {
+        console.error(`Error processing file ${path}:`, error);
+        concatenated += `## File: ${path}\n\n`;
+        concatenated += `[Error reading file]\n\n---\n\n`;
+      }
+    }
+
+    return {
+      success: true,
+      data: concatenated,
+    };
+  } catch (error) {
+    console.error('Error concatenating files:', error);
+    return {
+      success: false,
+      error: 'Failed to concatenate selected files',
+    };
+  }
+};

@@ -1,0 +1,173 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+
+interface ReviewResult {
+  review: string;
+  suggestions: string[];
+  score: number;
+}
+
+const Step6ReviewResults: React.FC = () => {
+  const navigate = useNavigate();
+  const [reviewData, setReviewData] = useState<ReviewResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const storedReview = localStorage.getItem('reviewResult');
+      if (!storedReview) {
+        throw new Error('No review data found');
+      }
+      setReviewData(JSON.parse(storedReview));
+    } catch (err) {
+      setError('Failed to load review results');
+      console.error(err);
+    }
+  }, []);
+
+  // Parse review sections from the text
+  const parseSections = (review: string) => {
+    const sections = {
+      summary: '',
+      criticalIssues: '',
+      recommendations: '',
+      highlights: '',
+      breakdown: ''
+    };
+
+    let currentSection = '';
+    const lines = review.split('\n');
+
+    for (const line of lines) {
+      if (line.includes('1. SUMMARY')) {
+        currentSection = 'summary';
+      } else if (line.includes('2. CRITICAL ISSUES')) {
+        currentSection = 'criticalIssues';
+      } else if (line.includes('3. RECOMMENDATIONS')) {
+        currentSection = 'recommendations';
+      } else if (line.includes('4. POSITIVE HIGHLIGHTS')) {
+        currentSection = 'highlights';
+      } else if (line.includes('5. DETAILED BREAKDOWN')) {
+        currentSection = 'breakdown';
+      } else if (currentSection) {
+        sections[currentSection] += line + '\n';
+      }
+    }
+
+    return sections;
+  };
+
+  const sections = reviewData ? parseSections(reviewData.review) : null;
+
+  if (error) {
+    return (
+      <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button variant="contained" onClick={() => navigate('/submit-review')}>
+          Back to Review Submission
+        </Button>
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+      <Typography variant="h5" component="h1" gutterBottom>
+        Code Review Results
+      </Typography>
+
+      {sections && (
+        <Box sx={{ mt: 3 }}>
+          <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Summary</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.summary}
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" color="error">Critical Issues</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.criticalIssues}
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" color="primary">Recommendations</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.recommendations}
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" color="success.main">Positive Highlights</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.highlights}
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Detailed Breakdown</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography component="pre" sx={{ whiteSpace: 'pre-wrap' }}>
+                {sections.breakdown}
+              </Typography>
+            </AccordionDetails>
+          </Accordion>
+        </Box>
+      )}
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+        <Button
+          variant="outlined"
+          onClick={() => navigate('/submit-review')}
+        >
+          Back
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            localStorage.clear(); // Clear wizard data
+            navigate('/jira-ticket');
+          }}
+        >
+          Start New Review
+        </Button>
+      </Box>
+    </Paper>
+  );
+};
+
+export default Step6ReviewResults;

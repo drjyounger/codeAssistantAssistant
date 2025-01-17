@@ -1,0 +1,64 @@
+1. Project Overview
+Goal: Build a web application that automates and simplifies AI-based code reviews. The system integrates with Jira and GitHub, gathers relevant code/files automatically, and sends a comprehensive prompt to an LLM.
+
+The project is a multi-step wizard:
+
+# STEP 1 # 
+
+Jira Ticket - pasting in a Jira ticket number to retrieve the ticket details, acceptance criteria, and linked epics.
+
+# STEP 2 # 
+
+GitHub PR - pasting in a GitHub pull request number to retrieve the pull request details, diffs, and changed files - showing the code files that were worked on and changes.
+
+# STEP 3 # 
+
+File Selection - using a checkbox-based file directory tree navigation UI to navigate locally and select all the files that are relevant to the ticket and pull request. 
+1.  Allow the user to enter a root directory path as a starting point
+2.  Display the full file directory tree starting from the root directory, with checkboxes beside each file and subdirectory
+3.  Allow selective checking of the boxes to include in the concatenation
+4.  When checking the box beside a folder, it should include everything in that folder, including sub-folders and files
+5. When "Next" is clicked, the system then concatenates all the selected files, according to the logic rules outlined in the program
+6.  It should have an easy-to-use UI
+
+Note: We're not concatentating from the repos, we're selecting local files and folders to concatenate into the markdown file.  So the concatention is a local tree navigation with checkboxes and doesn't require the github call.
+
+So for example:
+
+Pull Request #23245 and Pull Request #2560 (and selecting the relevant repos) would pull in the diffs and those files.  
+
+But in Step 3 of the concatenation, the deveoper will go through and manually select not just the files that were worked on, but any other files and folders that would be contextually relevant  for the code review.
+
+So the developer might make 3 changes on the front end to the sign-up flow, but then select the entire api folder to send along for additional context in the analysis. 
+
+# STEP 4 # 
+
+Select Additional Files needed for context - such as coding standards, DB schema, or any references.
+
+# STEP 5 # 
+
+Submit Review - submitting all the data to the LLM for review generation.  The submitted api call to the LLM includes a system prompt which instructs the LLM, along with the Jira ticket details, acceptance criteria, linked epics, pull request details, diffs, changed files, the concatenated file, and any additional files needed for context.
+
+# STEP 6 # 
+
+Code review is returned to the user from the LLM.
+
+# Key Objectives #
+
+Fetch Context Automatically
+Pull Jira ticket information based on the ticket number.
+Pull GitHub pull request information based on the pull request number.
+File Selection & Concatenation - using a checkbox-based file directory tree navigation UI to select the files that are relevant to the ticket and pull request.  Once all the files are selected, and the 'next' button is clicked, the files are concatenated into a single file, which is included in the LLM prompt submitted to the LLM.
+
+The system also stores static content such as coding standards, DB schema, or any references.  These optional context files are listed in Step 4, and if checked, they are included in the LLM prompt submitted to the LLM.
+
+2. Tech Stack
+
+The project will initially be run locally on localhost, and will be deployed to AWS later.  The project will be React/Typescript based and use the Google Gemini LLM API.
+
+Authentication & Authorization
+
+GitHub api authentication
+Jira api authentication
+Google Gemini LLM API authentication
+
