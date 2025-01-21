@@ -145,8 +145,9 @@ app.post('/api/concatenate-files', async (req, res) => {
 app.post('/api/generate-review', async (req, res) => {
   try {
     const { jiraTicket, githubPR, concatenatedFiles, referenceFiles } = req.body;
+    const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+    const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
 
-    // Validate required data
     if (!concatenatedFiles) {
       return res.status(400).json({
         success: false,
@@ -154,21 +155,49 @@ app.post('/api/generate-review', async (req, res) => {
       });
     }
 
-    // Here you would call your LLM service (e.g., Google Gemini)
-    // For now, let's return a mock response
-    const review = {
-      success: true,
-      review: `Mock code review for:
-        - Jira Ticket: ${jiraTicket?.key || 'N/A'}
-        - PR: ${githubPR?.number || 'N/A'}
-        - Files reviewed: ${concatenatedFiles.length} characters
-        - Reference files: ${referenceFiles.length} files`
-    };
+    // Generate the prompt
+    const promptString = generateSystemPrompt({
+      jiraTicket,
+      githubPR,
+      concatenatedFiles,
+      additionalFiles: referenceFiles,
+    });
 
-    res.json(review);
+    // Call Gemini API
+    const geminiResponse = await axios.post(
+      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{
+            text: promptString
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.8,
+        }
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    // Safely extract the generated text
+    const generatedText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!generatedText) {
+      throw new Error('Unexpected response format from Gemini API');
+    }
+
+    res.json({
+      success: true,
+      review: generatedText
+    });
   } catch (error) {
     console.error('Error generating review:', error);
-    res.status(500).json({
+    res.status(error.response?.status || 500).json({
       success: false,
       error: error.message || 'Failed to generate review'
     });

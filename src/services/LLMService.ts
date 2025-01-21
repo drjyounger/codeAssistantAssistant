@@ -29,7 +29,7 @@ interface CodeReviewResponse {
 }
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = process.env.REACT_APP_GEMINI_URL;
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
 
 export const generateCodeReview = async ({
   jiraTicket,
@@ -38,33 +38,60 @@ export const generateCodeReview = async ({
   referenceFiles
 }: CodeReviewParams): Promise<CodeReviewResponse> => {
   try {
-    const response = await fetch('/api/generate-review', {
+    const promptString = generateSystemPrompt({
+      jiraTicket,
+      githubPR,
+      concatenatedFiles,
+      additionalFiles: referenceFiles,
+    });
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        jiraTicket,
-        githubPR,
-        concatenatedFiles,
-        referenceFiles
-      }),
+        contents: [{
+          parts: [{
+            text: promptString
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.8,
+        }
+      })
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to generate review: ${response.statusText}`);
+      throw new Error(`Gemini API error: ${response.statusText}`);
     }
 
     const result = await response.json();
+
+    if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Unexpected response format from Gemini API');
+    }
+
+    const generatedText = result.candidates[0].content.parts[0].text;
+
+    if (!generatedText.includes('1. SUMMARY') || 
+        !generatedText.includes('2. CRITICAL ISSUES')) {
+      throw new Error('Generated review does not contain the required sections');
+    }
+
     return {
       success: true,
-      data: result.review
+      data: generatedText
     };
   } catch (error) {
     console.error('Error generating review:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate review'
+      error: error instanceof Error 
+        ? error.message 
+        : 'Failed to generate review'
     };
   }
 };

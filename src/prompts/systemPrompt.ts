@@ -1,31 +1,50 @@
-export const generateSystemPrompt = (context: {
+interface SystemPromptParams {
   jiraTicket: any;
   githubPR: any;
   concatenatedFiles: string;
   additionalFiles: string[];
-}) => {
+}
+
+export const generateSystemPrompt = ({
+  jiraTicket,
+  githubPR,
+  concatenatedFiles,
+  additionalFiles
+}: SystemPromptParams): string => {
   return `You are an expert-level code reviewer for TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
 
 ROLE AND OBJECTIVE:
 - You are tasked with providing comprehensive, actionable code reviews
 - Your analysis should focus on code quality, security, performance, and alignment with business requirements
 - You should identify potential bugs, edge cases, and areas for optimization
-- You must ensure the code aligns with the provided database schema and coding standards
+- You must ensure the code aligns with the provided database schema and coding standards.
+
+Here is the Jira ticket information related to this task:
+${JSON.stringify(jiraTicket, null, 2)}
+
+And here is the pull request information as related to this task:
+${JSON.stringify(githubPR, null, 2)}
+
+And here are all the files related to this work:
+${concatenatedFiles}
+
+Additional context files:
+${additionalFiles.join('\n')}
 
 REVIEW CONTEXT:
 1. Jira Ticket Details:
-- Ticket: ${context.jiraTicket.key}
+- Ticket: ${jiraTicket.key}
 
 2. GitHub Pull Request:
-- PR #${context.githubPR.number}: ${context.githubPR.title}
-- Description: ${context.githubPR.description}
-- Changed Files: ${context.githubPR.changedFiles.length} files modified
+- PR #${githubPR.number}: ${githubPR.title}
+- Description: ${githubPR.description}
+- Changed Files: ${githubPR.changedFiles.length} files modified
 
 3. Below is a long concatenated file that contains all code related to the ticket, this includes the changed code but also other files that would be contextually related to the ticket. 
-${context.concatenatedFiles}
+${concatenatedFiles}
 
 4. Additional Context:
-${context.additionalFiles.join('\n')}
+${additionalFiles.join('\n')}
 
 REVIEW GUIDELINES:
 1. Code Quality:

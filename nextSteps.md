@@ -1,119 +1,184 @@
+Below is a step-by-step plan to integrate your real Gemini LLM (the “Flash” model) into this codebase so that the entire wizard flow ends with an actual AI-generated code review. The plan follows your existing structure and the requirements from .cursorrules—namely, that:
+
+You fetch Jira + GitHub info.
+You gather local files + references.
+You compile them into a single prompt for the LLM.
+You display the returned code review in the last step.
+1. PREPARE ENVIRONMENT & CREDENTIALS
+Obtain Gemini API Key / Credentials
+
+Ensure you have your Gemini “Flash” model key (often in an environment variable) — for example:
+env
+Copy
+REACT_APP_GEMINI_API_KEY=sk-...
+REACT_APP_GEMINI_URL=https://your-gemini-endpoint.com/v1/invoke
+If you don’t have the final endpoint, create a placeholder, e.g. https://gemini.google.com/flash for now.
+Add This Key to .env
+
+The create-react-app environment variables must begin with REACT_APP_.
+Make sure you have REACT_APP_GEMINI_API_KEY and REACT_APP_GEMINI_URL in your .env file. Then in LLMService.ts you can do:
+
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+const GEMINI_API_URL = process.env.REACT_APP_GEMINI_URL;
+Important: Do not commit sensitive keys to a public repo.
+Install Any Required Dependencies
+
+If Gemini has a Node library or you want to do a pure HTTP fetch, confirm you have everything you need. Currently, your code uses fetch in LLMService.ts, so that might be enough.
+2. BUILD THE SYSTEM PROMPT WITH ALL CONTEXT
+Use generateSystemPrompt() in src/prompts/systemPrompt.ts
+
+You’ve already got a function that merges:
+jiraTicket info
+githubPR info
+concatenatedFiles
+referenceFiles
+That function returns a big chunk of text that instructs your LLM on how to produce a code review.
+Right now, you’re not actually using that inside LLMService.ts—you’re just sending these as separate fields. So we’ll fix that below.
+In generateCodeReview() (see Step #3 below), call generateSystemPrompt(...) to produce one consolidated string prompt. Then you’ll pass that string to the Gemini model (Flash) as your “prompt.”
+
+3. UPDATE YOUR REAL LLM CALL IN LLMService.ts
+File: src/services/LLMService.ts
+Inside generateCodeReview(...), you currently do:
+
+
+export const generateCodeReview = async ({ jiraTicket, githubPR, concatenatedFiles, referenceFiles }) => {
+  const response = await fetch('/api/generate-review', { ... });
+  // ...
+};
+But that’s just calling your local mock endpoint (/api/generate-review in proxy.js). Instead, you want to call Gemini directly, or at least have proxy.js forward a real request to Gemini. Here are two approaches:
+
+Approach A: Call Gemini Directly from the Client
+Remove or bypass your proxy.js “generate-review” route.
+
+Within generateCodeReview(), do something like:
+
+
+import { generateSystemPrompt } from '../prompts/systemPrompt';
+
+export const generateCodeReview = async ({
+  jiraTicket,
+  githubPR,
+  concatenatedFiles,
+  referenceFiles
+}) => {
+  // 1) Build a single text prompt
+  const promptString = generateSystemPrompt({
+    jiraTicket,
+    githubPR,
+    concatenatedFiles,
+    additionalFiles: referenceFiles,
+  });
+
+  // 2) Send that prompt to Gemini
+  const response = await fetch(process.env.REACT_APP_GEMINI_URL!, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.REACT_APP_GEMINI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      // the exact request shape depends on Gemini's API
+      prompt: promptString,
+      model: 'flash', 
+      temperature: 0.3
+    })
+  });
+
+  if (!response.ok) {
+    return { success: false, error: `Gemini error: ${response.statusText}` };
+  }
+
+  // 3) parse out the LLM's text
+  const resultData = await response.json();
+  // e.g. if Gemini returns { choices: [{ text: 'some answer' }] }:
+  const text = resultData?.choices?.[0]?.text || '(No content)';
+
+  return {
+    success: true,
+    data: text,
+  };
+};
+Now your code calls the real LLM, returning the LLM’s text as data.
+
+In your ReviewSubmissionStep.tsx:
+
+
+const review = await generateCodeReview({
+  jiraTicket,
+  githubPR,
+  concatenatedFiles,
+  referenceFiles,
+});
+
+if (review.success) {
+-   localStorage.setItem('reviewResult', JSON.stringify({ review: review.data, suggestions: [], score: 0 }));
++   localStorage.setItem(
++     'reviewResult',
++     JSON.stringify({
++       review: review.data,
++       suggestions: [],
++       score: 0
++     })
++   );
+...
+Done—the final step’s text is the real LLM response, not the local mock.
+
+This approach yields a real code review from Gemini that has headings like:
+
+
 1. SUMMARY
-Overall, this codebase implements a multi-step wizard that:
-
-Pulls Jira ticket details (Step 1).
-Pulls GitHub pull request details (Step 2).
-Allows the user to browse a local directory tree, select relevant files, and concatenate them (Step 3).
-Offers additional reference files (Step 4).
-Submits a comprehensive code review prompt to an LLM (Step 5).
-Displays the code review result (Step 6).
-From a broad perspective, the application structure and flow align well with the acceptance criteria in .cursorrules. The wizard steps follow the required logic, and MUI X v7 TreeView usage is consistent with the new SimpleTreeView/TreeItem patterns (itemId instead of nodeId, slots instead of old icon props, etc.).
-
-However, there are a few significant mismatches and smaller points that need attention (detailed below)—most notably the discrepancy between how /api/local/file is defined on the server (as a POST) versus how readLocalFile is attempting a GET request with a query param. That prevents local file reading from actually working in practice. There’s also some duplicated code in LocalFileService.ts that could be simplified.
-
+Some summary...
 2. CRITICAL ISSUES
-readLocalFile Route Mismatch
-
-File: src/services/LocalFileService.ts
-Problem: The server route /api/local/file is a POST expecting req.body.filePath. But in readLocalFile, you’re doing:
-ts
-Copy
-const response = await fetch(
-  `http://localhost:3001/api/local/file?path=${encodeURIComponent(filePath)}`
-);
-This is a GET with a ?path= query parameter, which does not match the server’s POST route reading from req.body.
-Impact: This breaks actual file loading when you call readLocalFile(...). Files can’t be read from the local file system in practice.
-Unused or Duplicate Directory-Fetch Logic
-
-File(s): LocalFileService.ts has both getLocalDirectoryTree(...) and readLocalDirectory(...); they each do a POST to /api/local/directory, but the wizard is calling readLocalDirectory(...) in FileTree.tsx. Meanwhile, getLocalDirectoryTree(...) is never used.
-Impact: This duplicative code can cause confusion or lead to maintenance issues.
-Potential Security Concern
-
-File: proxy.js (for reading arbitrary local files & directories).
-Problem: Because the server reads and returns any file path posted to /api/local/file, an external user could read sensitive files if this were ever deployed outside a safe, local environment.
-Impact: Possibly outside the immediate scope, but worth noting for production readiness.
+...
 3. RECOMMENDATIONS
-Below are suggestions to address the critical issues and improve overall quality:
-
-A. Fix the File API Route Mismatch
-Server (proxy.js):
-js
-Copy
-// Currently:
-app.post('/api/local/file', (req, res) => {
-  const { filePath } = req.body;
-  ...
-});
-Client (LocalFileService.ts → readLocalFile):
-ts
-Copy
-// Currently: GET with query param
-// Should do POST with JSON body:
-const response = await fetch('/api/local/file', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ filePath }),
-});
-Adjust accordingly so client and server usage match.
-B. Remove or Consolidate Duplicate Directory Service Functions
-If you want to keep both readLocalDirectory and getLocalDirectoryTree, clarify their differences or rename them. Otherwise, pick one and remove the other.
-C. Pre-Select Changed Files (If Desired)
-FileTree.tsx accepts a changedFiles prop but doesn’t actually use it to pre-check items in the tree. If the requirement is to have changed files automatically checked, implement a useEffect once the tree data loads (or in handleNodeSelect) to set selectedNodes. Otherwise, consider removing the unused prop to reduce confusion.
-D. Check for Permission & Error Handling
-In production, consider restricting file-serving or applying additional checks to protect the file system from unauthorized reads.
-E. Misc. Code Polish
-TypeScript: Many any or untyped error states can be improved by casting to typed error objects, or by using unknown.
-Logging: Your logging is thorough, but confirm that repeated console logs (especially in the useEffect) are turned off or toned down in production to avoid clutter.
+...
 4. POSITIVE HIGHLIGHTS
-Clear Wizard Flow
-
-Each step in src/components/Steps/... is strongly aligned with the acceptance criteria in the .cursorrules.
-Good synergy between React Router routes and step-based navigation.
-MUI X v7 Tree Usage
-
-SimpleTreeView and TreeItem usage (with itemId) matches the recommended approach from treeViewMigration.md.
-The custom checkboxes for file selection are well-structured.
-Concatenation Approach
-
-The logic for turning selected files into one big markdown snippet is straightforward (concatenate-files endpoint).
-The code lumps all text-based files together while ignoring standard directories—this nicely meets the acceptance criteria for “selective file concatenation.”
-Extensibility
-
-Additional steps (e.g., AdditionalFilesStep, ReviewSubmissionStep) are easy to modify or reorder.
-You’ve included placeholders for design/coding standards and DB schema references, exactly as .cursorrules suggests.
+...
 5. DETAILED BREAKDOWN
-Below are notes by file or area worth highlighting:
+...
+So your Step6 parse logic will properly fill each category.
 
-.cursorrules:
+4. ENSURE THE LLM’S RESPONSE INCLUDES HEADINGS
+Because your final step’s parseSections() function is keyed off:
 
-The code adheres to the required multi-step wizard, custom references, and local file selection. Good job referencing these guidelines in your overall code structure.
-FileSelectionStep.tsx:
+1. SUMMARY
+2. CRITICAL ISSUES
+3. RECOMMENDATIONS
+4. POSITIVE HIGHLIGHTS
+5. DETAILED BREAKDOWN
+You must instruct Gemini to produce that structure. You’re doing so in systemPrompt.ts:
 
-Uses a stable useMemo for changedFiles so it doesn’t cause repeated renders. Nice approach.
-The actual local directory fetch logic sets showTree to true on the “Fetch Directory” button click, which is simpler than auto-fetching on each keystroke.
-FileTree.tsx:
 
-Properly uses SimpleTreeView / TreeItem with itemId.
-handleNodeSelect is custom, and there’s no clash with MUI’s onItemSelectionToggle, so that’s safe.
-changedFiles is never leveraged to auto-check boxes. Add logic if needed.
-LocalFileService.ts:
+Please provide your review in the following structure:
 
-getLocalDirectoryTree vs. readLocalDirectory: Both do nearly the same POST to /api/local/directory. Typically only one is needed.
-readLocalFile mismatch with server method is the biggest functional bug here.
-ReviewSubmissionStep.tsx & /api/generate-review:
+1. SUMMARY
+Brief overview...
+2. CRITICAL ISSUES
+Any blocking issues...
+3. RECOMMENDATIONS
+...
+4. POSITIVE HIGHLIGHTS
+...
+5. DETAILED BREAKDOWN
+...
+As long as Gemini adheres to that format, you’ll see the sections fill in.
 
-Currently returns a mock response with a default review string. That’s fine if your LLM integration is not yet complete. Logic for storing the final result in localStorage is consistent with the rest of the wizard.
-General Security
+5. OPTIONAL: EXTEND / TWEAK THE PROMPT
+If you want the final text to also incorporate a “score” or “suggestions,” you can instruct the LLM. For instance, in systemPrompt.ts, add:
 
-The local-file reading endpoints are not locked down in any way. Usually, that’s acceptable for a local dev tool but not for a production environment. Just something to keep in mind if you plan to release it externally.
-treeViewMigration.md:
 
-The code changes for MUI v7 (renaming nodeId → itemId, removing default*Icon props, etc.) appear properly integrated in the code. That is consistent with the doc.
-FINAL WORDS
-Once you fix the mismatch in how /api/local/file is called (POST vs. GET) and remove/consolidate duplicated directory-service methods, your code should be able to:
+Additionally, provide a numeric code quality score from 0 to 100.
+Then parse it in your front-end if desired.
 
-Fetch and display local files from any directory.
-Check or uncheck them to build your concatenated markdown prompt.
-Combine them with Jira, GitHub PR data, plus any optional references.
-Submit them to your LLM in Step 5.
-Show results in Step 6.
+6. VERIFY THE Cursorrules Acceptance Criteria
+From .cursorrules, the wizard must:
+
+Gather Jira ticket info 
+Gather GitHub PR info 
+Let user pick local files 
+Concatenate the selected files into a single text
+Let user optionally pick additional reference docs
+Submits everything to LLM 
+Confirm we build the final prompt with all the bits
+Confirm we add the actual LLM call to Gemini.
+Show final review → your Step6ReviewResults currently looks for headings in the text. 
