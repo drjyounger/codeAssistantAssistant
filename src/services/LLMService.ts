@@ -15,64 +15,56 @@ interface ReviewResponse {
   score: number;
 }
 
+interface CodeReviewParams {
+  jiraTicket: any;
+  githubPR: any;
+  concatenatedFiles: string;
+  referenceFiles: string[];
+}
+
+interface CodeReviewResponse {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_API_URL = process.env.REACT_APP_GEMINI_URL;
 
-export const generateCodeReview = async (
-  request: ReviewRequest
-): Promise<ApiResponse<ReviewResponse>> => {
+export const generateCodeReview = async ({
+  jiraTicket,
+  githubPR,
+  concatenatedFiles,
+  referenceFiles
+}: CodeReviewParams): Promise<CodeReviewResponse> => {
   try {
-    const systemPrompt = generateSystemPrompt({
-      jiraTicket: request.jiraTicket,
-      githubPR: request.githubPR,
-      concatenatedFiles: request.concatenatedFiles,
-      additionalFiles: request.referenceFiles
-    });
-
-    const response = await fetch(GEMINI_API_URL!, {
+    const response = await fetch('/api/generate-review', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GEMINI_API_KEY}`
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: systemPrompt }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_DEROGATORY",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      })
+        jiraTicket,
+        githubPR,
+        concatenatedFiles,
+        referenceFiles
+      }),
     });
 
-    const data = await response.json();
-    
+    if (!response.ok) {
+      throw new Error(`Failed to generate review: ${response.statusText}`);
+    }
+
+    const result = await response.json();
     return {
       success: true,
-      data: {
-        review: data.candidates[0].content.parts[0].text,
-        suggestions: [], // Parse suggestions from the response
-        score: 0 // Calculate score if needed
-      }
+      data: result.review
     };
   } catch (error) {
     console.error('Error generating review:', error);
     return {
       success: false,
-      error: 'Failed to generate code review'
+      error: error instanceof Error ? error.message : 'Failed to generate review'
     };
   }
 };

@@ -75,11 +75,27 @@ export const getLanguageFromExtension = (filename: string): string => {
  */
 export const getDirectoryTree = async (rootPath: string): Promise<FileNode> => {
   try {
-    // 1) Fetch the raw directory data from local
-    const rawTree = await getLocalDirectoryTree(rootPath);
+    // Sanitize the path input
+    const normalizedPath = rootPath.trim();
+    if (!normalizedPath) {
+      throw new Error('Root path cannot be empty');
+    }
 
-    // 2) Convert the data into your FileNode structure, skipping standard dirs
+    // Add logging for debugging
+    console.log('Attempting to fetch directory tree for:', normalizedPath);
+    
+    const rawTree = await getLocalDirectoryTree(normalizedPath);
+    
+    // Add validation for the response
+    if (!rawTree || typeof rawTree !== 'object') {
+      throw new Error('Invalid directory tree response');
+    }
+
     const buildTree = (entry: any): FileNode | null => {
+      if (!entry || !entry.path) {
+        return null;
+      }
+
       // If it's a standard library path, skip it
       if (isStandardLibraryPath(entry.path)) {
         return null;
@@ -108,7 +124,7 @@ export const getDirectoryTree = async (rootPath: string): Promise<FileNode> => {
     }
     return treeNode;
   } catch (error) {
-    console.error('Error fetching local directory tree:', error);
+    console.error('Error in getDirectoryTree:', error);
     throw error;
   }
 };

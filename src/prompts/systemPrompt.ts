@@ -15,17 +15,13 @@ ROLE AND OBJECTIVE:
 REVIEW CONTEXT:
 1. Jira Ticket Details:
 - Ticket: ${context.jiraTicket.key}
-- Summary: ${context.jiraTicket.summary}
-- Description: ${context.jiraTicket.description}
-- Acceptance Criteria: ${context.jiraTicket.acceptanceCriteria}
-${context.jiraTicket.linkedEpics.length > 0 ? `- Linked Epics:\n${context.jiraTicket.linkedEpics.map(epic => `  * ${epic.key}: ${epic.summary}`).join('\n')}` : ''}
 
 2. GitHub Pull Request:
 - PR #${context.githubPR.number}: ${context.githubPR.title}
 - Description: ${context.githubPR.description}
 - Changed Files: ${context.githubPR.changedFiles.length} files modified
 
-3. Code Changes:
+3. Below is a long concatenated file that contains all code related to the ticket, this includes the changed code but also other files that would be contextually related to the ticket. 
 ${context.concatenatedFiles}
 
 4. Additional Context:

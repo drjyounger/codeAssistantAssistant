@@ -11,15 +11,26 @@ export interface JiraTicket {
 }
 
 // GitHub related types
+export interface GitHubFile {
+  filename: string;
+  status: 'added' | 'modified' | 'removed';
+  patch: string | undefined;
+}
+
 export interface GitHubPR {
-  number: number;
   title: string;
   description: string;
-  changedFiles: Array<{
-    filename: string;
-    status: 'added' | 'modified' | 'removed';
-    patch?: string;
-  }>;
+  number: number;
+  repo: {
+    owner: string;
+    name: string;
+  };
+  changedFiles: GitHubFile[];
+}
+
+export interface PRDetails {
+  frontend: GitHubPR | null;
+  backend: GitHubPR | null;
 }
 
 // File selection types

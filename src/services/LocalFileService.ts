@@ -1,5 +1,7 @@
 // src/services/LocalFileService.ts
 
+import { FileNode } from '../types';
+
 interface DirectoryResponse {
     path: string;
     type: 'file' | 'directory';
@@ -12,19 +14,43 @@ interface DirectoryResponse {
    * Expects a recursive JSON describing folder contents
    */
   export const getLocalDirectoryTree = async (rootPath: string): Promise<DirectoryResponse> => {
-    const response = await fetch('/api/local/directory', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ rootPath }),
-    });
+    try {
+      console.log('Attempting to read directory:', rootPath);
+      
+      const response = await fetch('/api/local/directory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rootPath }),
+      });
   
-    if (!response.ok) {
-      throw new Error('Failed to read local directory');
+      // Get the response text first
+      const responseText = await response.text();
+      
+      if (!response.ok) {
+        console.error('Server response:', responseText);
+        throw new Error(`Failed to read local directory: ${responseText}`);
+      }
+  
+      // Try to parse the response as JSON
+      try {
+        const data = JSON.parse(responseText);
+        
+        // Validate the response structure
+        if (!data || typeof data !== 'object' || !data.path) {
+          throw new Error('Invalid directory response format');
+        }
+        
+        return data;
+      } catch (parseError) {
+        console.error('Failed to parse server response:', responseText);
+        throw new Error('Invalid JSON response from server');
+      }
+    } catch (error) {
+      console.error('Error in getLocalDirectoryTree:', error);
+      throw error;
     }
-  
-    return response.json();
   };
   
   /**
@@ -33,18 +59,43 @@ interface DirectoryResponse {
    * Returns file content as text
    */
   export const readLocalFile = async (filePath: string): Promise<string> => {
-    const response = await fetch('/api/local/file', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ filePath }),
-    });
-  
-    if (!response.ok) {
-      throw new Error('Failed to read local file');
+    try {
+      const response = await fetch('/api/local/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to read file: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.content;
+    } catch (error) {
+      console.error('Error reading local file:', error);
+      throw error;
     }
+  };
   
-    return response.text();
+  const API_BASE_URL = 'http://localhost:3001/api';
+  
+  export const readLocalDirectory = async (rootPath: string) => {
+    try {
+      const response = await fetch('/api/local/directory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootPath }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to read directory: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error reading local directory:', error);
+      throw error;
+    }
   };
   

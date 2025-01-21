@@ -9,7 +9,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { getTicketDetails } from '../../services/jiraService';
+import { getTicketDetails } from '../../services/JiraService';
 import { JiraTicket } from '../../types';
 
 const JiraTicketStep: React.FC = () => {

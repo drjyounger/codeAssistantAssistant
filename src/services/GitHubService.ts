@@ -14,9 +14,16 @@ export const getPullRequestDetails = async (
   owner: string,
   repo: string
 ): Promise<ApiResponse<GitHubPR>> => {
+  console.log('GitHub API Config:', {
+    hasToken: !!GITHUB_TOKEN,
+    owner,
+    repo,
+    prNumber
+  });
+
   try {
     // Fetch PR details
-    const { data: pr } = await octokit.pulls.get({
+    const { data: prData } = await octokit.pulls.get({
       owner,
       repo,
       pull_number: prNumber,
@@ -30,9 +37,9 @@ export const getPullRequestDetails = async (
     });
 
     const pullRequest: GitHubPR = {
-      number: pr.number,
-      title: pr.title,
-      description: pr.body || '',
+      number: prData.number,
+      title: prData.title,
+      description: prData.body || '',
       repo: { owner, name: repo },
       changedFiles: files.map(file => ({
         filename: file.filename,

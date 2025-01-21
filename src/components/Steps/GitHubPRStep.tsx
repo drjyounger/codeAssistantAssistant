@@ -6,23 +6,23 @@ import {
   TextField,
   Button,
   Box,
-  Alert,
-  FormControl,
   FormControlLabel,
   Checkbox,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import { getPullRequestDetails } from '../../services/GitHubService';
+import { PRDetails } from '../../types';
+import { STORAGE_KEYS, saveGitHubPRs, getGitHubPRs } from '../../utils/storage';
 
 const REPOS = {
   frontend: {
     owner: 'drjyounger',
-    name: 'tempstars-app',
-    label: 'Frontend PR (tempstars-app)'
+    name: 'tempstars-app'
   },
   backend: {
     owner: 'drjyounger',
-    name: 'tempstars-api',
-    label: 'Backend PR (tempstars-api)'
+    name: 'tempstars-api'
   }
 };
 
@@ -31,43 +31,57 @@ const GitHubPRStep: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Just track PR numbers and which repos are selected
   const [prs, setPRs] = useState({
     frontend: { number: '', selected: false },
     backend: { number: '', selected: false }
   });
 
   const handlePRSubmit = async () => {
+    console.log('Starting PR submission...');
     setLoading(true);
     setError(null);
     
     try {
-      const prDetails = { frontend: null, backend: null };
+      const prDetails: PRDetails = {
+        frontend: null,
+        backend: null
+      };
       const promises = [];
 
-      // Fetch selected PR diffs
+      console.log('Selected PRs:', prs);
+
       if (prs.frontend.selected && prs.frontend.number) {
+        console.log('Fetching frontend PR:', prs.frontend.number);
         promises.push(
           getPullRequestDetails(
             parseInt(prs.frontend.number), 
             REPOS.frontend.owner, 
             REPOS.frontend.name
           ).then(result => {
-            if (result.success) prDetails.frontend = result.data;
-            else throw new Error(`Frontend PR Error: ${result.error}`);
+            console.log('Frontend PR result:', result);
+            if (result.success && result.data) {
+              prDetails.frontend = result.data;
+            } else {
+              throw new Error(`Frontend PR Error: ${result.error}`);
+            }
           })
         );
       }
 
       if (prs.backend.selected && prs.backend.number) {
+        console.log('Fetching backend PR:', prs.backend.number);
         promises.push(
           getPullRequestDetails(
             parseInt(prs.backend.number),
             REPOS.backend.owner,
             REPOS.backend.name
           ).then(result => {
-            if (result.success) prDetails.backend = result.data;
-            else throw new Error(`Backend PR Error: ${result.error}`);
+            console.log('Backend PR result:', result);
+            if (result.success && result.data) {
+              prDetails.backend = result.data;
+            } else {
+              throw new Error(`Backend PR Error: ${result.error}`);
+            }
           })
         );
       }
@@ -77,38 +91,41 @@ const GitHubPRStep: React.FC = () => {
       }
 
       await Promise.all(promises);
+      console.log('Final PR Details:', prDetails);
 
-      // Store just the PR details and diffs
-      localStorage.setItem('githubPRs', JSON.stringify(prDetails));
+      // Store PR details
+      saveGitHubPRs(prDetails);
       
-      // Move to file selection where user will pick local files
+      console.log('About to navigate to file selection...');
       navigate('/file-selection');
+      console.log('Navigation triggered');
 
     } catch (err) {
+      console.error('PR submission error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch PR details');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePRChange = (repo: 'frontend' | 'backend', field: 'number' | 'selected', value: string | boolean) => {
+  const handleInputChange = (repo: 'frontend' | 'backend', value: string) => {
     setPRs(prev => ({
       ...prev,
-      [repo]: {
-        ...prev[repo],
-        [field]: value
-      }
+      [repo]: { ...prev[repo], number: value }
+    }));
+  };
+
+  const handleCheckboxChange = (repo: 'frontend' | 'backend') => {
+    setPRs(prev => ({
+      ...prev,
+      [repo]: { ...prev[repo], selected: !prev[repo].selected }
     }));
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
+    <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
       <Typography variant="h5" component="h1" gutterBottom>
-        Step 2: GitHub Pull Request Details
-      </Typography>
-
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        Select the pull requests to include in the review. The diffs will be included in the analysis context.
+        Step 2: GitHub Pull Requests
       </Typography>
 
       {error && (
@@ -117,55 +134,51 @@ const GitHubPRStep: React.FC = () => {
         </Alert>
       )}
 
-      {/* Frontend PR Input */}
       <Box sx={{ mb: 3 }}>
         <FormControlLabel
           control={
             <Checkbox
               checked={prs.frontend.selected}
-              onChange={(e) => handlePRChange('frontend', 'selected', e.target.checked)}
+              onChange={() => handleCheckboxChange('frontend')}
             />
           }
-          label={REPOS.frontend.label}
+          label="Front End (tempstars-app)"
         />
         {prs.frontend.selected && (
           <TextField
             fullWidth
             label="PR Number"
             value={prs.frontend.number}
-            onChange={(e) => handlePRChange('frontend', 'number', e.target.value)}
-            disabled={loading}
+            onChange={(e) => handleInputChange('frontend', e.target.value)}
             sx={{ mt: 1 }}
-            placeholder="e.g., 23245"
+            disabled={loading}
           />
         )}
       </Box>
 
-      {/* Backend PR Input */}
       <Box sx={{ mb: 3 }}>
         <FormControlLabel
           control={
             <Checkbox
               checked={prs.backend.selected}
-              onChange={(e) => handlePRChange('backend', 'selected', e.target.checked)}
+              onChange={() => handleCheckboxChange('backend')}
             />
           }
-          label={REPOS.backend.label}
+          label="Back End (tempstars-api)"
         />
         {prs.backend.selected && (
           <TextField
             fullWidth
             label="PR Number"
             value={prs.backend.number}
-            onChange={(e) => handlePRChange('backend', 'number', e.target.value)}
-            disabled={loading}
+            onChange={(e) => handleInputChange('backend', e.target.value)}
             sx={{ mt: 1 }}
-            placeholder="e.g., 2560"
+            disabled={loading}
           />
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/jira-ticket')}
@@ -177,6 +190,7 @@ const GitHubPRStep: React.FC = () => {
           variant="contained"
           onClick={handlePRSubmit}
           disabled={loading || (!prs.frontend.selected && !prs.backend.selected)}
+          endIcon={loading && <CircularProgress size={20} />}
         >
           Next
         </Button>
@@ -184,5 +198,8 @@ const GitHubPRStep: React.FC = () => {
     </Paper>
   );
 };
+
+// Reading data:
+const savedPRs = getGitHubPRs();
 
 export default GitHubPRStep; 

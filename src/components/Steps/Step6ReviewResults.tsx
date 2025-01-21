@@ -19,6 +19,15 @@ interface ReviewResult {
   score: number;
 }
 
+interface Sections {
+  [key: string]: string;
+  summary: string;
+  criticalIssues: string;
+  recommendations: string;
+  highlights: string;
+  breakdown: string;
+}
+
 const Step6ReviewResults: React.FC = () => {
   const navigate = useNavigate();
   const [reviewData, setReviewData] = useState<ReviewResult | null>(null);
@@ -39,7 +48,7 @@ const Step6ReviewResults: React.FC = () => {
 
   // Parse review sections from the text
   const parseSections = (review: string) => {
-    const sections = {
+    const sections: Sections = {
       summary: '',
       criticalIssues: '',
       recommendations: '',
@@ -69,7 +78,15 @@ const Step6ReviewResults: React.FC = () => {
     return sections;
   };
 
-  const sections = reviewData ? parseSections(reviewData.review) : null;
+  const defaultSections: Sections = {
+    summary: '',
+    criticalIssues: '',
+    recommendations: '',
+    highlights: '',
+    breakdown: ''
+  };
+
+  const sections: Sections = reviewData ? parseSections(reviewData.review) : defaultSections;
 
   if (error) {
     return (
