@@ -57,7 +57,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
         const data = await response.json();
         if (data.success && data.data) {
-          setTreeData(data.data);
+          setTreeData({
+            id: rootPath,
+            name: rootPath.split('/').pop() || rootPath,
+            isDirectory: true,
+            children: data.data
+          });
         } else {
           throw new Error(data.error || 'Failed to load directory structure');
         }
@@ -80,8 +85,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return node.isDirectory ? <Folder color="primary" /> : <InsertDriveFile />;
   };
 
-  const renderTree = (node: TreeNode | null) => {
-    if (!node) return null;
+  const renderTree = (node: TreeNode) => {
+    if (!node || !node.id) return null;
 
     return (
       <TreeItem

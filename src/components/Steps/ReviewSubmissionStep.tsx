@@ -46,7 +46,11 @@ const ReviewSubmissionStep: React.FC = () => {
       });
 
       if (review.success) {
-        localStorage.setItem('reviewResult', JSON.stringify(review.data));
+        localStorage.setItem('reviewResult', JSON.stringify({
+          review: review.data,
+          suggestions: [],  // Add any additional metadata you want to preserve
+          score: 0
+        }));
         navigate('/review-result');
       } else {
         throw new Error(review.error || 'Failed to generate review');
