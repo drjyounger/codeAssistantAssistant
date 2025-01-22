@@ -11,6 +11,12 @@ export const generateSystemPrompt = ({
   concatenatedFiles,
   additionalFiles
 }: SystemPromptParams): string => {
+  const jiraKey = jiraTicket?.key || 'N/A';
+  const prNumber = githubPR?.number || 'N/A';
+  const prTitle = githubPR?.title || 'N/A';
+  const prDescription = githubPR?.description || 'N/A';
+  const changedFilesCount = githubPR?.changedFiles?.length || 0;
+
   return `You are an expert-level code reviewer for TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
 
 ROLE AND OBJECTIVE:
@@ -20,31 +26,31 @@ ROLE AND OBJECTIVE:
 - You must ensure the code aligns with the provided database schema and coding standards.
 
 Here is the Jira ticket information related to this task:
-${JSON.stringify(jiraTicket, null, 2)}
+${JSON.stringify(jiraTicket || {}, null, 2)}
 
 And here is the pull request information as related to this task:
-${JSON.stringify(githubPR, null, 2)}
+${JSON.stringify(githubPR || {}, null, 2)}
 
 And here are all the files related to this work:
-${concatenatedFiles}
+${concatenatedFiles || ''}
 
 Additional context files:
-${additionalFiles.join('\n')}
+${(additionalFiles || []).join('\n')}
 
 REVIEW CONTEXT:
 1. Jira Ticket Details:
-- Ticket: ${jiraTicket.key}
+- Ticket: ${jiraKey}
 
 2. GitHub Pull Request:
-- PR #${githubPR.number}: ${githubPR.title}
-- Description: ${githubPR.description}
-- Changed Files: ${githubPR.changedFiles.length} files modified
+- PR #${prNumber}: ${prTitle}
+- Description: ${prDescription}
+- Changed Files: ${changedFilesCount} files modified
 
 3. Below is a long concatenated file that contains all code related to the ticket, this includes the changed code but also other files that would be contextually related to the ticket. 
-${concatenatedFiles}
+${concatenatedFiles || ''}
 
 4. Additional Context:
-${additionalFiles.join('\n')}
+${(additionalFiles || []).join('\n')}
 
 REVIEW GUIDELINES:
 1. Code Quality:

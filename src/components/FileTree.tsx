@@ -76,9 +76,53 @@ export const FileTree: React.FC<FileTreeProps> = ({
     fetchDirectory();
   }, [rootPath, onError]);
 
-  const handleSelectedChange = (_event: React.SyntheticEvent, nodeIds: string[]) => {
-    setSelectedItems(nodeIds);
-    onSelect(nodeIds);
+  // New helper function to get all child node IDs
+  const getAllChildIds = (node: TreeNode): string[] => {
+    let ids: string[] = [node.id];
+    if (node.children) {
+      node.children.forEach(child => {
+        ids = [...ids, ...getAllChildIds(child)];
+      });
+    }
+    return ids;
+  };
+
+  // New helper function to find a node by ID
+  const findNode = (id: string, node: TreeNode): TreeNode | null => {
+    if (node.id === id) return node;
+    if (node.children) {
+      for (const child of node.children) {
+        const found = findNode(id, child);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Updated selection handler
+  const handleSelectedChange = (nodeId: string) => {
+    setSelectedItems(prev => {
+      const node = treeData ? findNode(nodeId, treeData) : null;
+      if (!node) return prev;
+
+      const newSelection = new Set(prev);
+      const isCurrentlySelected = newSelection.has(nodeId);
+      
+      // Get all child IDs if this is a directory
+      const idsToToggle = node.isDirectory ? getAllChildIds(node) : [nodeId];
+      
+      idsToToggle.forEach(id => {
+        if (isCurrentlySelected) {
+          newSelection.delete(id);
+        } else {
+          newSelection.add(id);
+        }
+      });
+
+      const result = Array.from(newSelection);
+      onSelect(result); // Notify parent of selection change
+      return result;
+    });
   };
 
   const getNodeIcon = (node: TreeNode) => {
@@ -96,7 +140,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
             <Checkbox
               checked={selectedItems.includes(node.id)}
-              onChange={(e) => handleSelectedChange(e, [node.id])}
+              onChange={() => handleSelectedChange(node.id)}
               onClick={(e) => e.stopPropagation()}
               size="small"
             />
@@ -136,7 +180,11 @@ export const FileTree: React.FC<FileTreeProps> = ({
       <SimpleTreeView
         multiSelect
         selectedItems={selectedItems}
-        onSelectedItemsChange={handleSelectedChange}
+        onSelectedItemsChange={(_, itemIds) => {
+          if (itemIds.length > 0) {
+            handleSelectedChange(itemIds[0]);
+          }
+        }}
         aria-label="file system navigator"
         slots={{
           expandIcon: ChevronRight,

@@ -24,19 +24,23 @@ const JiraTicketStep: React.FC = () => {
     setError(null);
     setLoading(true);
 
+    console.log('[client] [Step1:JiraTicket] Attempting to fetch Jira ticket:', ticketNumber);
+
     try {
       const response = await getTicketDetails(ticketNumber);
       
       if (response.success && response.data) {
+        console.log('[client] [Step1:JiraTicket] Successfully retrieved Jira ticket data:', response.data);
         setTicket(response.data);
-        // Store ticket data in localStorage or state management solution
         localStorage.setItem('jiraTicket', JSON.stringify(response.data));
+        console.log('[client] [Step1:JiraTicket] Stored ticket in localStorage. Navigating to GitHub PR step.');
         navigate('/github-pr');
       } else {
         setError(response.error || 'Failed to fetch ticket details');
       }
     } catch (err) {
-      setError('Failed to fetch Jira ticket details. Please try again.');
+      console.error('[client] [Step1:JiraTicket] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch ticket details');
     } finally {
       setLoading(false);
     }

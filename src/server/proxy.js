@@ -4,6 +4,7 @@ const axios = require('axios');
 require('dotenv').config();
 const fs = require('fs').promises;
 const path = require('path');
+const { generateSystemPrompt } = require('../prompts/systemPrompt');
 
 const app = express();
 app.use(cors());

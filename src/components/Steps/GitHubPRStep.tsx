@@ -37,7 +37,7 @@ const GitHubPRStep: React.FC = () => {
   });
 
   const handlePRSubmit = async () => {
-    console.log('Starting PR submission...');
+    console.log('[client] [Step2:GitHubPR] Starting PR submission with:', prs);
     setLoading(true);
     setError(null);
     
@@ -51,7 +51,7 @@ const GitHubPRStep: React.FC = () => {
       console.log('Selected PRs:', prs);
 
       if (prs.frontend.selected && prs.frontend.number) {
-        console.log('Fetching frontend PR:', prs.frontend.number);
+        console.log(`[client] [Step2:GitHubPR] Fetching frontend PR #${prs.frontend.number}...`);
         promises.push(
           getPullRequestDetails(
             parseInt(prs.frontend.number), 
@@ -69,7 +69,7 @@ const GitHubPRStep: React.FC = () => {
       }
 
       if (prs.backend.selected && prs.backend.number) {
-        console.log('Fetching backend PR:', prs.backend.number);
+        console.log(`[client] [Step2:GitHubPR] Fetching backend PR #${prs.backend.number}...`);
         promises.push(
           getPullRequestDetails(
             parseInt(prs.backend.number),
@@ -91,17 +91,17 @@ const GitHubPRStep: React.FC = () => {
       }
 
       await Promise.all(promises);
-      console.log('Final PR Details:', prDetails);
+      console.log('[client] [Step2:GitHubPR] Final PR Details:', prDetails);
 
       // Store PR details
       saveGitHubPRs(prDetails);
       
-      console.log('About to navigate to file selection...');
+      console.log('[client] [Step2:GitHubPR] Saved PR details to localStorage. Navigating to file selection...');
       navigate('/file-selection');
       console.log('Navigation triggered');
 
     } catch (err) {
-      console.error('PR submission error:', err);
+      console.error('[client] [Step2:GitHubPR] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch PR details');
     } finally {
       setLoading(false);
