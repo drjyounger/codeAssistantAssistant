@@ -48,6 +48,9 @@ And here are all the files related to this work, you'll see each file in the con
 
 =====START CONCATENATED FILES=====
 
+Note: The TempStars repo is split into 'tempstars-api' and 'tempstars-app' repos.  So you will see files and directories with paths that start with 'tempstars-api' (backend) or 'tempstars-app' (frontend).  
+During build of the actual project, both repos are used.
+
 ${concatenatedFiles || ''}
 
 =====END CONCATENATED FILES=====
