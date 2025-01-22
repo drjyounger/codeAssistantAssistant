@@ -174,9 +174,8 @@ app.post('/api/generate-review', async (req, res) => {
           }]
         }],
         generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.8,
+          temperature: 0.7,
+          candidateCount: 1
         }
       },
       {

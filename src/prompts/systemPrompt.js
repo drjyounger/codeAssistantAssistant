@@ -10,7 +10,7 @@ const generateSystemPrompt = ({
   const prDescription = githubPR?.description || 'N/A';
   const changedFilesCount = githubPR?.changedFiles?.length || 0;
 
-  return `You are an expert-level code reviewer for TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
+  return `You are an expert-level code reviewer for the product and engineering team at TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
 
 Your job is to review all of the information below and provide a comprehensive, actionable code review.  
 

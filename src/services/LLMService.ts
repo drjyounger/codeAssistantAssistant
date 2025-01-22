@@ -29,7 +29,7 @@ interface CodeReviewResponse {
 }
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
 
 export const generateCodeReview = async ({
   jiraTicket,
@@ -57,9 +57,8 @@ export const generateCodeReview = async ({
           }]
         }],
         generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.8,
+          temperature: 0.7,
+          candidateCount: 1
         }
       })
     });
