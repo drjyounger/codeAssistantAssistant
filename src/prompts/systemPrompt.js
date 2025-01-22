@@ -1,16 +1,9 @@
-interface SystemPromptParams {
-  jiraTicket: any;
-  githubPR: any;
-  concatenatedFiles: string;
-  additionalFiles: string[];
-}
-
-export const generateSystemPrompt = ({
+const generateSystemPrompt = ({
   jiraTicket,
   githubPR,
   concatenatedFiles,
   additionalFiles
-}: SystemPromptParams): string => {
+}) => {
   const jiraKey = jiraTicket?.key || 'N/A';
   const prNumber = githubPR?.number || 'N/A';
   const prTitle = githubPR?.title || 'N/A';
@@ -107,4 +100,6 @@ Well-implemented aspects of the code
 File-by-file analysis of significant changes
 
 Remember to be thorough but constructive in your feedback, providing specific examples and suggested solutions where applicable.`;
-}; 
+};
+
+module.exports = { generateSystemPrompt }; 
