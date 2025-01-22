@@ -14,7 +14,7 @@ const generateSystemPrompt = ({
 
 Your job is to review all of the information below and provide a comprehensive, actionable code review.  
 
-Below, you will find:
+Below, you will find the following information needed to understand the scope of the PR and Jira ticket:
 
 1. Jira ticket
 2. the GitHub PR
