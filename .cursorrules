@@ -156,3 +156,5 @@ Remember to be thorough but constructive in your feedback, providing specific ex
 
 =====end pseudo-prompt=====
 
+// future idea: The 'review submission' button counts the number of tokens in the total prompt and allows the user to select the LLM model to submit to.  Large prompts would need Gemini, but smaller prompts could use the o1 model.
+
