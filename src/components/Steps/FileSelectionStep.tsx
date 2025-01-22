@@ -31,6 +31,7 @@ const FileSelectionStep: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pr, setPR] = useState<GitHubPR | null>(null);
+  const [concatenatedContent, setConcatenatedContent] = useState<string>('');
 
   const changedFiles = useMemo(() => pr?.changedFiles || [], [pr]);
 
@@ -77,7 +78,7 @@ const FileSelectionStep: React.FC = () => {
     setSelectedFiles(files);
   };
 
-  const handleNext = async () => {
+  const handleConcatenate = async () => {
     if (selectedFiles.length === 0) {
       setError('Please select at least one file');
       return;
@@ -87,10 +88,8 @@ const FileSelectionStep: React.FC = () => {
     setError(null);
 
     try {
-      // Get the PR number if it exists
       const prNumber = pr?.number?.toString() || '';
       
-      // Call the concatenation service
       const response = await fetch('/api/concatenate-files', {
         method: 'POST',
         headers: {
@@ -109,9 +108,7 @@ const FileSelectionStep: React.FC = () => {
       const result = await response.json();
 
       if (result.success && result.data) {
-        // Store the concatenated content
-        localStorage.setItem('concatenatedFiles', result.data);
-        navigate('/additional-files');
+        setConcatenatedContent(result.data);
       } else {
         throw new Error(result.error || 'Failed to concatenate files');
       }
@@ -120,6 +117,13 @@ const FileSelectionStep: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to process selected files');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (concatenatedContent) {
+      localStorage.setItem('concatenatedFiles', concatenatedContent);
+      navigate('/additional-files');
     }
   };
 
@@ -166,7 +170,7 @@ const FileSelectionStep: React.FC = () => {
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/github-pr')}
@@ -176,14 +180,40 @@ const FileSelectionStep: React.FC = () => {
         </Button>
         <Button
           variant="contained"
-          onClick={handleNext}
+          onClick={handleConcatenate}
           disabled={loading || selectedFiles.length === 0}
         >
-          {loading ? <CircularProgress size={24} /> : 'Next'}
+          {loading ? <CircularProgress size={20} /> : 'Concatenate Files'}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleNext}
+          disabled={loading || !concatenatedContent}
+        >
+          Next
         </Button>
       </Box>
+
+      {/* Display concatenated content */}
+      {concatenatedContent && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" fontWeight="bold">
+            Concatenated Files:
+          </Typography>
+          <pre style={{ 
+            background: '#f5f5f5', 
+            padding: '1rem',
+            borderRadius: '4px',
+            overflow: 'auto',
+            maxHeight: '400px'
+          }}>
+            {concatenatedContent}
+          </pre>
+        </Box>
+      )}
     </Paper>
   );
 };
 
 export default FileSelectionStep;
+

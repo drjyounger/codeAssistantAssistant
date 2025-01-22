@@ -8,18 +8,11 @@ export const getTicketDetails = async (ticketNumber: string): Promise<ApiRespons
     const response = await axios.get(`${API_BASE_URL}/jira/ticket/${ticketNumber}`);
     const data = response.data;
 
-    // Transform Jira API response to our JiraTicket type
+    // Simplified ticket with only key, summary, and description
     const ticket: JiraTicket = {
       key: data.key,
       summary: data.fields.summary,
-      description: data.fields.description,
-      acceptanceCriteria: data.fields.customfield_10000 || '',
-      linkedEpics: data.fields.issuelinks
-        ?.filter((link: any) => link.outwardIssue?.fields?.issuetype?.name === 'Epic')
-        .map((link: any) => ({
-          key: link.outwardIssue.key,
-          summary: link.outwardIssue.fields.summary,
-        })) || [],
+      description: data.fields.description || '',
     };
 
     return {

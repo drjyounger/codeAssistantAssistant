@@ -46,6 +46,11 @@ export const getPullRequestDetails = async (
         status: file.status as 'added' | 'modified' | 'removed',
         patch: file.patch,
       })),
+      author: prData.user?.login,
+      createdAt: prData.created_at,
+      isMerged: Boolean(prData.merged_at),
+      mergeable: prData.mergeable ?? undefined,
+      labels: prData.labels?.map(label => label.name) || [],
     };
 
     return {

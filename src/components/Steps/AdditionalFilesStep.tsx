@@ -14,7 +14,7 @@ import {
 interface ReferenceFile {
   id: string;
   name: string;
-  type: 'coding-standard' | 'schema' | 'reference';
+  type: 'coding-standard' | 'schema' | 'reference' | 'business-context';
   path: string;
 }
 
@@ -30,6 +30,12 @@ const REFERENCE_FILES: ReferenceFile[] = [
     name: 'Database Schema',
     type: 'schema',
     path: '/references/databaseSchema.md'
+  },
+  {
+    id: 'business-context',
+    name: 'Business Context',
+    type: 'business-context',
+    path: '/references/businessContext.md'
   }
 ];
 

@@ -9,6 +9,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { generateCodeReview } from '../../services/LLMService';
+import { generateSystemPrompt } from '../../prompts/systemPrompt';
 
 interface JiraTicket {
   key: string;
@@ -26,6 +27,7 @@ const ReviewSubmissionStep: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promptPreview, setPromptPreview] = useState<string>('');
 
   const validateData = (
     jiraTicket: any,
@@ -100,6 +102,26 @@ const ReviewSubmissionStep: React.FC = () => {
     }
   };
 
+  const handlePreviewPrompt = () => {
+    try {
+      const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
+      const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
+      const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
+      const referenceFiles = JSON.parse(localStorage.getItem('referenceFiles') || '[]');
+
+      const promptString = generateSystemPrompt({
+        jiraTicket,
+        githubPR,
+        concatenatedFiles,
+        additionalFiles: referenceFiles
+      });
+
+      setPromptPreview(promptString);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate preview');
+    }
+  };
+
   return (
     <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h5" component="h1" gutterBottom>
@@ -112,7 +134,7 @@ const ReviewSubmissionStep: React.FC = () => {
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/additional-files')}
@@ -122,12 +144,38 @@ const ReviewSubmissionStep: React.FC = () => {
         </Button>
         <Button
           variant="contained"
+          color="secondary"
+          onClick={handlePreviewPrompt}
+          disabled={loading}
+        >
+          Preview API Call
+        </Button>
+        <Button
+          variant="contained"
           onClick={handleSubmit}
           disabled={loading}
         >
-          {loading ? <CircularProgress size={24} /> : 'Generate Review'}
+          {loading ? <CircularProgress size={20} /> : 'Submit Review'}
         </Button>
       </Box>
+
+      {/* Display prompt preview */}
+      {promptPreview && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" fontWeight="bold">
+            API Call Preview:
+          </Typography>
+          <pre style={{ 
+            background: '#f5f5f5', 
+            padding: '1rem',
+            borderRadius: '4px',
+            overflow: 'auto',
+            maxHeight: '500px'
+          }}>
+            {promptPreview}
+          </pre>
+        </Box>
+      )}
     </Paper>
   );
 };

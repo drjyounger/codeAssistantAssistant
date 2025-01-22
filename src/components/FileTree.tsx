@@ -99,6 +99,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return null;
   };
 
+  // Helper to get all child file paths from a directory
+  const getAllChildPaths = (node: TreeNode): string[] => {
+    let paths: string[] = [];
+    if (!node.isDirectory) {
+      paths.push(node.id);
+    } else if (node.children) {
+      node.children.forEach(child => {
+        paths = [...paths, ...getAllChildPaths(child)];
+      });
+    }
+    return paths;
+  };
+
   // Updated selection handler
   const handleSelectedChange = (nodeId: string) => {
     setSelectedItems(prev => {
@@ -108,19 +121,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
       const newSelection = new Set(prev);
       const isCurrentlySelected = newSelection.has(nodeId);
       
-      // Get all child IDs if this is a directory
-      const idsToToggle = node.isDirectory ? getAllChildIds(node) : [nodeId];
+      // Get all child paths if this is a directory
+      const pathsToToggle = node.isDirectory ? getAllChildPaths(node) : [nodeId];
       
-      idsToToggle.forEach(id => {
+      pathsToToggle.forEach(path => {
         if (isCurrentlySelected) {
-          newSelection.delete(id);
+          newSelection.delete(path);
         } else {
-          newSelection.add(id);
+          newSelection.add(path);
         }
       });
 
       const result = Array.from(newSelection);
-      onSelect(result); // Notify parent of selection change
+      onSelect(result);
       return result;
     });
   };

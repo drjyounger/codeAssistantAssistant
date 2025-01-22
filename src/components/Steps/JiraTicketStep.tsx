@@ -19,8 +19,7 @@ const JiraTicketStep: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<JiraTicket | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleFetchTicket = async () => {
     setError(null);
     setLoading(true);
 
@@ -32,9 +31,6 @@ const JiraTicketStep: React.FC = () => {
       if (response.success && response.data) {
         console.log('[client] [Step1:JiraTicket] Successfully retrieved Jira ticket data:', response.data);
         setTicket(response.data);
-        localStorage.setItem('jiraTicket', JSON.stringify(response.data));
-        console.log('[client] [Step1:JiraTicket] Stored ticket in localStorage. Navigating to GitHub PR step.');
-        navigate('/github-pr');
       } else {
         setError(response.error || 'Failed to fetch ticket details');
       }
@@ -46,13 +42,21 @@ const JiraTicketStep: React.FC = () => {
     }
   };
 
+  const handleNext = () => {
+    if (ticket) {
+      localStorage.setItem('jiraTicket', JSON.stringify(ticket));
+      console.log('[client] [Step1:JiraTicket] Stored ticket in localStorage. Navigating to GitHub PR step.');
+      navigate('/github-pr');
+    }
+  };
+
   return (
     <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
       <Typography variant="h5" component="h1" gutterBottom>
         Step 1: Enter Jira Ticket
       </Typography>
       
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => { e.preventDefault(); handleNext(); }}>
         <Box sx={{ mb: 3 }}>
           <TextField
             fullWidth
@@ -66,22 +70,39 @@ const JiraTicketStep: React.FC = () => {
           />
         </Box>
 
-        {ticket && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            Ticket found: {ticket.summary}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
           <Button
-            type="submit"
             variant="contained"
-            disabled={!ticketNumber || loading}
-            endIcon={loading && <CircularProgress size={20} />}
+            onClick={handleFetchTicket}
+            disabled={!ticketNumber.trim() || loading}
+          >
+            {loading ? <CircularProgress size={20} /> : 'Fetch Ticket'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleNext}
+            disabled={!ticket || loading}
           >
             Next
           </Button>
         </Box>
+
+        {ticket && (
+          <Box sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
+            <Typography variant="body2" fontWeight="bold">
+              Fetched Jira Ticket:
+            </Typography>
+            <pre style={{ 
+              background: '#f5f5f5', 
+              padding: '1rem',
+              borderRadius: '4px',
+              overflow: 'auto',
+              maxHeight: '300px'
+            }}>
+              {JSON.stringify(ticket, null, 2)}
+            </pre>
+          </Box>
+        )}
       </form>
     </Paper>
   );

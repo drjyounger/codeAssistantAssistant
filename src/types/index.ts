@@ -3,11 +3,6 @@ export interface JiraTicket {
   key: string;
   summary: string;
   description: string;
-  acceptanceCriteria: string;
-  linkedEpics: Array<{
-    key: string;
-    summary: string;
-  }>;
 }
 
 // GitHub related types
@@ -26,6 +21,11 @@ export interface GitHubPR {
     name: string;
   };
   changedFiles: GitHubFile[];
+  author?: string;
+  createdAt?: string;
+  isMerged?: boolean;
+  mergeable?: boolean;
+  labels?: string[];
 }
 
 export interface PRDetails {

@@ -36,19 +36,22 @@ const GitHubPRStep: React.FC = () => {
     backend: { number: '', selected: false }
   });
 
-  const handlePRSubmit = async () => {
-    console.log('[client] [Step2:GitHubPR] Starting PR submission with:', prs);
+  const [prDetails, setPrDetails] = useState<PRDetails>({
+    frontend: null,
+    backend: null
+  });
+
+  const handleFetchPRs = async () => {
+    console.log('[client] [Step2:GitHubPR] Starting PR fetch with:', prs);
     setLoading(true);
     setError(null);
     
     try {
-      const prDetails: PRDetails = {
+      const updatedPRDetails: PRDetails = {
         frontend: null,
         backend: null
       };
       const promises = [];
-
-      console.log('Selected PRs:', prs);
 
       if (prs.frontend.selected && prs.frontend.number) {
         console.log(`[client] [Step2:GitHubPR] Fetching frontend PR #${prs.frontend.number}...`);
@@ -58,9 +61,8 @@ const GitHubPRStep: React.FC = () => {
             REPOS.frontend.owner, 
             REPOS.frontend.name
           ).then(result => {
-            console.log('Frontend PR result:', result);
             if (result.success && result.data) {
-              prDetails.frontend = result.data;
+              updatedPRDetails.frontend = result.data;
             } else {
               throw new Error(`Frontend PR Error: ${result.error}`);
             }
@@ -76,9 +78,8 @@ const GitHubPRStep: React.FC = () => {
             REPOS.backend.owner,
             REPOS.backend.name
           ).then(result => {
-            console.log('Backend PR result:', result);
             if (result.success && result.data) {
-              prDetails.backend = result.data;
+              updatedPRDetails.backend = result.data;
             } else {
               throw new Error(`Backend PR Error: ${result.error}`);
             }
@@ -91,20 +92,21 @@ const GitHubPRStep: React.FC = () => {
       }
 
       await Promise.all(promises);
-      console.log('[client] [Step2:GitHubPR] Final PR Details:', prDetails);
-
-      // Store PR details
-      saveGitHubPRs(prDetails);
-      
-      console.log('[client] [Step2:GitHubPR] Saved PR details to localStorage. Navigating to file selection...');
-      navigate('/file-selection');
-      console.log('Navigation triggered');
+      console.log('[client] [Step2:GitHubPR] Final PR Details:', updatedPRDetails);
+      setPrDetails(updatedPRDetails);
 
     } catch (err) {
       console.error('[client] [Step2:GitHubPR] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch PR details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (prDetails.frontend || prDetails.backend) {
+      saveGitHubPRs(prDetails);
+      navigate('/file-selection');
     }
   };
 
@@ -178,7 +180,7 @@ const GitHubPRStep: React.FC = () => {
         )}
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/jira-ticket')}
@@ -188,13 +190,57 @@ const GitHubPRStep: React.FC = () => {
         </Button>
         <Button
           variant="contained"
-          onClick={handlePRSubmit}
+          onClick={handleFetchPRs}
           disabled={loading || (!prs.frontend.selected && !prs.backend.selected)}
-          endIcon={loading && <CircularProgress size={20} />}
+        >
+          {loading ? <CircularProgress size={20} /> : 'Fetch PR(s)'}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleNext}
+          disabled={loading || (!prDetails.frontend && !prDetails.backend)}
         >
           Next
         </Button>
       </Box>
+
+      {/* Display fetched PR details */}
+      {(prDetails.frontend || prDetails.backend) && (
+        <Box sx={{ mt: 2 }}>
+          {prDetails.frontend && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" fontWeight="bold">
+                Frontend PR #{prDetails.frontend.number}:
+              </Typography>
+              <pre style={{ 
+                background: '#f5f5f5', 
+                padding: '1rem',
+                borderRadius: '4px',
+                overflow: 'auto',
+                maxHeight: '300px'
+              }}>
+                {JSON.stringify(prDetails.frontend, null, 2)}
+              </pre>
+            </Box>
+          )}
+          {prDetails.backend && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" fontWeight="bold">
+                Backend PR #{prDetails.backend.number}:
+              </Typography>
+              <pre style={{ 
+                background: '#f5f5f5', 
+                padding: '1rem',
+                borderRadius: '4px',
+                overflow: 'auto',
+                maxHeight: '300px'
+              }}>
+                {JSON.stringify(prDetails.backend, null, 2)}
+              </pre>
+            </Box>
+          )}
+        </Box>
+      )}
     </Paper>
   );
 };
