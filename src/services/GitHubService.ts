@@ -5,8 +5,16 @@ const GITHUB_TOKEN = process.env.REACT_APP_GITHUB_TOKEN;
 const REPO_OWNER = process.env.REACT_APP_GITHUB_OWNER;
 const REPO_NAME = process.env.REACT_APP_GITHUB_REPO;
 
+console.log('Environment variables check:', {
+  tokenExists: !!process.env.REACT_APP_GITHUB_TOKEN,
+  tokenLength: process.env.REACT_APP_GITHUB_TOKEN?.length,
+  owner: process.env.REACT_APP_GITHUB_OWNER,
+  repo: process.env.REACT_APP_GITHUB_REPO
+});
+
 const octokit = new Octokit({
   auth: GITHUB_TOKEN,
+  log: console,
 });
 
 export const getPullRequestDetails = async (
@@ -14,6 +22,13 @@ export const getPullRequestDetails = async (
   owner: string,
   repo: string
 ): Promise<ApiResponse<GitHubPR>> => {
+  if (!GITHUB_TOKEN) {
+    return {
+      success: false,
+      error: 'GitHub token is not configured. Please check your environment variables.',
+    };
+  }
+
   console.log('GitHub API Config:', {
     hasToken: !!GITHUB_TOKEN,
     owner,

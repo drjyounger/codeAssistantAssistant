@@ -51,6 +51,12 @@ const GitHubPRStep: React.FC = () => {
         frontend: null,
         backend: null
       };
+
+      // Validate environment variables first
+      if (!process.env.REACT_APP_GITHUB_TOKEN) {
+        throw new Error('GitHub token is not configured. Please check your .env file.');
+      }
+
       const promises = [];
 
       if (prs.frontend.selected && prs.frontend.number) {
@@ -97,7 +103,11 @@ const GitHubPRStep: React.FC = () => {
 
     } catch (err) {
       console.error('[client] [Step2:GitHubPR] Error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch PR details');
+      // More detailed error message
+      const errorMessage = err instanceof Error 
+        ? `${err.message}\n${err.stack}`
+        : 'Failed to fetch PR details';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -132,7 +142,9 @@ const GitHubPRStep: React.FC = () => {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {error}
+          </pre>
         </Alert>
       )}
 
