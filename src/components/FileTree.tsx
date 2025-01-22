@@ -34,6 +34,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   onError
 }) => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -191,13 +192,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   return (
     <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 1 }}>
       <SimpleTreeView
-        multiSelect
-        selectedItems={selectedItems}
-        onSelectedItemsChange={(_, itemIds) => {
-          if (itemIds.length > 0) {
-            handleSelectedChange(itemIds[0]);
-          }
-        }}
+        expandedItems={expandedItems}
+        onExpandedItemsChange={(_, newExpanded) => setExpandedItems(newExpanded)}
         aria-label="file system navigator"
         slots={{
           expandIcon: ChevronRight,
@@ -207,12 +203,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           height: '400px',
           flexGrow: 1,
           maxWidth: '100%',
-          overflowY: 'auto',
-          '& .MuiTreeItem-root': {
-            '& .MuiTreeItem-content': {
-              padding: '2px 0'
-            }
-          }
+          overflowY: 'auto'
         }}
       >
         {renderTree(treeData)}

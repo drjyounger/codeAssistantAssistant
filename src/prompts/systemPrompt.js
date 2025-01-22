@@ -123,7 +123,7 @@ Well-implemented aspects of the code
 5. DETAILED BREAKDOWN
 File-by-file analysis of significant changes
 
-Remember to be thorough, highly-detailed and actionable in your feedback.  Reference specific files and lines of code and providing specific examples and suggested solutions where applicable.`;
+You may be working with a beginner coder, or a developer new to the team.  So remember to be always thorough, highly-detailed and actionable in your feedback.  Reference specific files and lines of code and providing specific examples and suggested solutions where applicable.`;
 };
 
 module.exports = { generateSystemPrompt }; 

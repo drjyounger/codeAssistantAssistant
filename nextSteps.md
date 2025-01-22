@@ -1,259 +1,244 @@
-Next step changes to implement:
+The current problem is that folders don't expand to show their file contents.
 
-1. Jira Ticket Parsing – Only store key, summary, and description, omitting acceptanceCriteria and linkedEpics.
+Currently:
 
-2. GitHub PR Fetch – Gather more fields from GitHub (e.g. author, created date, merges, etc.) to display a richer preview.
+1.  The UI displays the starting folder with a checkbox beside it
+2.  Checking the box does not visually show the box checked
+3.  Clicking a folder does not expand to show the files and subfolders within
+4.  Clicking "Concatenate Files" and "Next" does apparently successfully concatenate the files, but there is no visual indicator that this happened in the UI 
 
-3. File Tree & Folder Expansion – Avoid errors when a folder is selected (i.e., “Error reading file …”), and allow folders to expand to show child files. This means adding a click-to-expand or arrow logic in FileTree.tsx that uses MUI’s TreeItem hierarchy.
+Expected:
 
-4. Use systemPrompt.ts for a richer final prompt. Right now, your “Preview” step uses a minimal string. Incorporate your more robust generateSystemPrompt() from systemPrompt.ts so the user sees the same final system prompt that goes to the LLM.
+1.  The UI displays the starting folder with a checkbox beside it
+2.  Checking the box visually shows the box checked (or unchecked)
+3.  Clicking a folder expands to show the files and subfolders within
+4.  Clicking a folder checkbox includes all subfolders and files in the concatenation
+5.  Checking a file includes that file in the concatenation
+6.  Clicking "Concatenate Files" displays the entire file concatentation contents
+7. Clicking "Next" proceeds to the next step in the workflow
 
-Below is step-by-step guidance and example code snippets.
+Below is a focused review of the tree/file-selection UI and the code around it, pinpointing why folders aren’t expanding, why checkboxes don’t seem to reflect selection, and how to show a clearer indication that concatenation succeeded. The short answer is that in MUI X v7’s SimpleTreeView, expanding folders and selecting nodes are now handled by separate props—namely expandedItems/onExpandedItemsChange for expansion, and selectedItems/onSelectedItemsChange for selection. Right now, the code is mixing checkbox-based selection with the tree’s own selectedItems property, but never sets up anything for expansions at all. Below are specific recommended changes.
 
-#1. Jira Ticket: Only Key, Summary, Description
-In src/services/JiraService.ts, your getTicketDetails function transforms the Jira response into a JiraTicket. By default, it also tries to parse acceptance criteria and epics. You can simply omit them or parse them into description if that’s your preference. For example:
+#1. Why Folders Don’t Expand
+Root Cause
+SimpleTreeView no longer automatically expands/collapses nodes simply by clicking them (as older MUI TreeView might have). You need to manage an expandedItems array and handle the onExpandedItemsChange callback.
+Currently, there is no expandedItems prop or any logic to track which items are expanded. That’s why clicking a folder label or arrow does nothing.
+How to Fix
+Create a piece of state in FileTree.tsx to track expanded node IDs:
 
+const [expandedItems, setExpandedItems] = useState<string[]>([]);
+Pass that state down to SimpleTreeView and update it when expansion changes:
 
-// src/services/JiraService.ts
-import axios from 'axios';
-import { JiraTicket, ApiResponse } from '../types';
-
-export const getTicketDetails = async (ticketNumber: string): Promise<ApiResponse<JiraTicket>> => {
-  try {
-    const response = await axios.get(...);
-
-    // Original code extracted acceptanceCriteria and linkedEpics
--   const ticket: JiraTicket = {
--     key: data.key,
--     summary: data.fields.summary,
--     description: data.fields.description,
--     acceptanceCriteria: data.fields.customfield_10000 || '',
--     linkedEpics: ...
--   };
-
-+   // Only store what you actually need:
-+   const ticket: JiraTicket = {
-+     key: response.data.key,
-+     summary: response.data.fields.summary,
-+     // Combine acceptance criteria into the description if you'd like,
-+     // or just store the raw description from Jira:
-+     description: response.data.fields.description || ''
-+   };
-
-    return { success: true, data: ticket };
-
-  } catch (error: any) {
-    ...
-  }
-};
-Adjust your JiraTicket type if needed:
-
-typescript
-Copy
-export interface JiraTicket {
-  key: string;
-  summary: string;
-  description: string;
-  // Remove acceptanceCriteria, linkedEpics if not needed
-}
-Now your preview JSON for the Jira step will only have key, summary, and description.
-
-#2. GitHub PR: More Data Fields
-Octokit returns a rich PR object in prData. You can capture as many fields as you want in your getPullRequestDetails method. For instance:
-
-
-// src/services/GitHubService.ts
-
-export const getPullRequestDetails = async (
-  prNumber: number,
-  owner: string,
-  repo: string
-): Promise<ApiResponse<GitHubPR>> => {
-
-  try {
-    // Fetch PR details
-    const { data: prData } = await octokit.pulls.get({
-      owner,
-      repo,
-      pull_number: prNumber,
-    });
-
-    // Also fetch PR files
-    const { data: files } = await octokit.pulls.listFiles({ ... });
-
-+   // Additional fields from the PR
-+   // e.g. user (the author), created date, state, labels, etc.
-+   const author = prData.user?.login ?? '';
-+   const createdAt = prData.created_at; 
-+   const isMerged = !!prData.merged_at;
-+   const mergeable = prData.mergeable;
-+   const labels = prData.labels?.map(label => label.name);
-
-    const pullRequest: GitHubPR = {
-      number: prData.number,
-      title: prData.title,
-      description: prData.body || '',
-      repo: { owner, name: repo },
-      changedFiles: files.map(file => ({
-        filename: file.filename,
-        status: file.status as 'added' | 'modified' | 'removed',
-        patch: file.patch,
-      })),
-+     author,
-+     createdAt,
-+     isMerged,
-+     mergeable,
-+     labels
-    };
-
-    return { success: true, data: pullRequest };
-
-  } catch (error) {
-    ...
-  }
-};
-Then update your GitHubPR interface:
-
-// src/types/index.ts
-export interface GitHubPR {
-  number: number;
-  title: string;
-  description: string;
-  repo: { owner: string; name: string };
-  changedFiles: GitHubFile[];
-+ author?: string;       // the PR author’s login
-+ createdAt?: string;    // date/time created
-+ isMerged?: boolean;    // merged_at != null
-+ mergeable?: boolean;   // can GitHub merge this PR?
-+ labels?: string[];     // e.g. ['bug','enhancement']
-}
-Now your “Fetched PR” JSON will be more robust, giving you more context to display in the preview step.
-
-#3. File Tree: Folder Expansion & Skipping Directory Concatenation
-
-A. Expanding Folders
-
-In your FileTree.tsx component (which uses MUI’s @mui/x-tree-view), you likely want to show an expand/collapse arrow. Right now you do display an arrow via slots={{ expandIcon, collapseIcon }} but you mention it’s not actually expanding. Ensure your TreeItems each have child TreeItems in their children prop, and that you’re using the correct SimpleTreeView expansions. For instance:
-
-<TreeItem
-  key={node.id}
-  itemId={node.id}
-  label={...}
+<SimpleTreeView
+  // keep your other props like multiSelect, etc.
+  expandedItems={expandedItems}
+  onExpandedItemsChange={(_, newExpanded) => {
+    setExpandedItems(newExpanded);
+  }}
+  ...
 >
-  {node.children?.map((child) => renderTree(child))}
-</TreeItem>
-If you see “Error reading file” for a directory, that means your concatenate-files endpoint is trying to read a folder as a file. You should skip or handle directories differently:
+  {renderTree(treeData)}
+</SimpleTreeView>
+Now, when the user clicks the expand/collapse arrow on a folder, MUI X will call onExpandedItemsChange with the new array of expanded nodes. This ensures the folder actually opens and shows children.
 
-// In /api/concatenate-files or your client code:
-if (fsStat.isDirectory()) {
-  // skip or recursively handle?
-  // Usually skip, because you only want .txt, .ts, .js, etc. 
+#2. Why Checkboxes Aren’t Visually Updating
+Root Cause
+Inside each <TreeItem>, you have a <Checkbox> that is not tied to the TreeView’s own selection system. Instead, you track your own selectedItems state.
+Meanwhile, <SimpleTreeView> also has selectedItems={selectedItems} and onSelectedItemsChange={(_, itemIds) => ...}, but your handler uses:
+
+onSelectedItemsChange={(_, itemIds) => {
+  // if (itemIds.length > 0) {
+  //   handleSelectedChange(itemIds[0]);
+  // }
+}}
+This effectively ignores multi-selection from the tree’s perspective. In practice, the checkboxes are toggling your selectedItems, but the TreeView’s built-in “selection” concept is never properly updated. That can lead to confusion or no visual feedback on the nodes themselves.
+How to Fix
+You have two ways to handle selection:
+
+Option A: Let the TreeView handle selection fully
+Remove the manual <Checkbox> from the label, rely on SimpleTreeView’s built-in multi-select highlight.
+Keep a single source of truth:
+
+const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+<SimpleTreeView
+  multiSelect
+  selectedItems={selectedItems}
+  onSelectedItemsChange={(_, newSelected) => {
+    setSelectedItems(newSelected);
+    onSelect(newSelected); // forward the selection to parent if needed
+  }}
+  ...
+>
+  <TreeItem ... />
+</SimpleTreeView>
+If you want a checkmark next to each node, you can style it using props, or you can do MUI’s recommended approach of customizing the ContentComponent.
+
+Option B: Keep your own <Checkbox>
+If you like the manual checkboxes in the node label, then:
+
+Remove all selectedItems={...} and onSelectedItemsChange={...} from <SimpleTreeView> altogether. Because you’re controlling selection with your own state, the TreeView’s built-in selection is redundant.
+
+<SimpleTreeView
+  // do NOT pass selectedItems, onSelectedItemsChange
+  expandedItems={expandedItems}
+  onExpandedItemsChange={(_, newExpanded) => setExpandedItems(newExpanded)}
+  ...
+>
+Continue to manage your own selectedItems: string[] plus <Checkbox checked={selectedItems.includes(node.id)} />. That way, the checkboxes reflect your state, and you aren’t fighting with the library’s built-in selection system.
+Either approach is perfectly fine, but they shouldn’t conflict. Doing both at once leads to the check confusion you’re seeing.
+
+#3. Indicating That Files Have Been Concatenated
+Observed Behavior
+After clicking “Concatenate Files” in FileSelectionStep.tsx, your code sets concatenatedContent in local state, then renders a <pre> with that output.
+So, from a strictly functional perspective, you do show the final text at the bottom. But perhaps it’s easy for the user to miss.
+How to Fix
+You could add a small success message or a Snackbar/Alert to confirm that concatenation happened. For example, after successful concatenation:
+
+
+if (result.success) {
+  setConcatenatedContent(result.data);
+  setShowSuccess(true); // show a Snackbar or Alert
 }
-Key: The final fix is to ensure your selection logic never tries to read a directory. This can be done in FileTree by ignoring clicks on folder nodes or storing them but skipping them in the server. That’s up to your exact design.
+Or simply scroll the user to the <pre> that shows the results.
 
-B. Recursive Checking (if desired)
-If you want to check a folder and automatically select everything inside it, you’ll need to implement a small helper function that does a DFS through the node’s children, collecting all file paths. We showed a snippet previously, but the main concept is:
+Another subtle improvement is to style the <pre> box more prominently so that the user sees: “Here is your concatenated file.”
 
-// In handleCheck...
-if (node.isDirectory) {
-  const childPaths = getAllChildPaths(node);
-  // add them to selected
-} else {
-  // toggle single file
+#4. Making Folder Checkboxes Also Select All Children
+It looks like your handleSelectedChange function already calls getAllChildPaths(node) to gather any descendant files. That’s good. Just be sure the expansion logic is separate, and that you remove the leftover references to the TreeView’s internal selection if you’re going with manual checkboxes.
+
+#5. Additional Minor Observations
+Stop propagation on the checkbox:
+
+
+onClick={(e) => e.stopPropagation()}
+This prevents a click on the checkbox from toggling expansion. That’s desired if you only want the arrow or label to toggle expansion. But watch out if you want the entire row-click to expand; you might remove stopPropagation() or specifically handle it in the label vs. arrow.
+
+Better naming: You might rename selectedItems -> checkedItems to clarify that these are the checkboxes and not the tree’s standard selection.
+
+In FileSelectionStep.tsx:
+
+You do properly display the entire concatenation in <pre>. So that’s basically your “visual indicator” that files have been included. Adding a short success message is enough to clarify.
+No further changes needed for the server side: The /api/concatenate-files endpoint is reading and concatenating as expected. The main UI problem is the expand/selection mismatch in the front end.
+
+Example: Revised FileTree.tsx (Option B: Manual Checkboxes)
+Below is an outline of how it might look if you stick with your manual <Checkbox> approach and simply add controlled expansion. You can remove onSelectedItemsChange from <SimpleTreeView> and only keep your selectedItems state for checkboxes:
+
+
+import React, { useEffect, useState } from 'react';
+import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
+import { ExpandMore, ChevronRight, Folder, InsertDriveFile } from '@mui/icons-material';
+import { Box, Checkbox, Typography } from '@mui/material';
+
+interface TreeNode {
+  id: string;
+  name: string;
+  isDirectory: boolean;
+  children?: TreeNode[];
 }
 
-#4. Use systemPrompt.ts for the ReviewSubmission Preview
-Right now, your final preview is a small, ad-hoc template:
+const FileTree: React.FC<...> = (...) => {
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [treeData, setTreeData] = useState<TreeNode | null>(null);
 
-const promptString = `You are an expert-level code reviewer for TempStars... JIRA TICKET: ... PR: ... `;
-But you already have a “systemPrompt.ts” that’s more detailed. To unify them, you can:
+  useEffect(() => {
+    // same code to fetch directory tree from /api/local/directory
+    // set treeData once loaded
+  }, [rootPath]);
 
-Import generateSystemPrompt from systemPrompt.ts.
-Use that function in your ReviewSubmissionStep.tsx for the “Preview API Call” button as well as the final submission—so that what you see is exactly what goes to the LLM.
-Example:
+  // Toggle check for a node
+  const handleCheckboxToggle = (nodeId: string) => {
+    setSelectedItems((prev) => {
+      // find the node in the tree
+      const node = treeData ? findNode(nodeId, treeData) : null;
+      if (!node) return prev;
 
-// src/components/Steps/ReviewSubmissionStep.tsx
-+ import { generateSystemPrompt } from '../../prompts/systemPrompt';
+      const newSet = new Set(prev);
+      const isSelected = newSet.has(nodeId);
 
-const handlePreviewPrompt = () => {
-  try {
-    const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
-    const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
-    const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
-    const referenceFiles = JSON.parse(localStorage.getItem('referenceFiles') || '[]');
+      // If it’s a folder, gather all children
+      const pathsToToggle = node.isDirectory
+        ? getAllChildPaths(node)
+        : [nodeId];
 
-    // Instead of ad-hoc:
--   const promptString = `You are an expert-level code reviewer...`;
+      pathsToToggle.forEach((p) => {
+        if (isSelected) newSet.delete(p);
+        else newSet.add(p);
+      });
 
-+   const promptString = generateSystemPrompt({
-+     jiraTicket,
-+     githubPR,
-+     concatenatedFiles,
-+     additionalFiles: referenceFiles
-+   });
+      const updated = Array.from(newSet);
+      onSelect(updated); // parent callback
+      return updated;
+    });
+  };
 
-    setPromptPreview(promptString);
-  } catch (err) {
-    ...
-  }
+  // Build your TreeItem
+  const renderTree = (node: TreeNode) => (
+    <TreeItem
+      key={node.id}
+      itemId={node.id}
+      label={
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Checkbox
+            checked={selectedItems.includes(node.id)}
+            onChange={() => handleCheckboxToggle(node.id)}
+            onClick={(e) => e.stopPropagation()} // so it doesn’t expand on checkbox click
+          />
+          {node.isDirectory ? <Folder /> : <InsertDriveFile />}
+          <Typography sx={{ ml: 1 }}>{node.name}</Typography>
+        </Box>
+      }
+    >
+      {node.children?.map((child) => renderTree(child))}
+    </TreeItem>
+  );
+
+  return (
+    <Box>
+      <SimpleTreeView
+        // Multi-select doesn’t matter if we’re controlling with checkboxes
+        expandedItems={expandedItems}
+        onExpandedItemsChange={(_, newExpanded) => setExpandedItems(newExpanded)}
+        aria-label="file system navigator"
+        slots={{
+          expandIcon: ChevronRight,
+          collapseIcon: ExpandMore
+        }}
+      >
+        {treeData && renderTree(treeData)}
+      </SimpleTreeView>
+    </Box>
+  );
 };
-This ensures your preview is the same rich prompt you’d expect in the final LLM call.
 
-#5. Improving Formatting & Sections in the System Prompt
-If you want your prompt’s sections to appear more clearly, you can do something like:
+export default FileTree;
+Key changes from your original:
 
-// In systemPrompt.ts
-export const generateSystemPrompt = ({ 
-  jiraTicket, 
-  githubPR, 
-  concatenatedFiles, 
-  additionalFiles 
-}) => {
+We removed selectedItems={selectedItems} and onSelectedItemsChange={...} from SimpleTreeView.
+We added expandedItems={expandedItems} and onExpandedItemsChange to handle expansion.
+The checkboxes call handleCheckboxToggle(node.id) to add/remove the node (and all children) to your selectedItems.
+Now, when you click the arrow on a folder, it will expand or collapse. When you check the checkbox, it updates your own selectedItems. The label or the arrow can still be used for expansion.
 
-  return `
-You are an expert-level code reviewer for TempStars...
+#6. Summary of Steps to Resolve Your 4 Main Issues
+Folders Don’t Expand
 
-1) Jira Ticket:
-Key: ${jiraTicket.key}
-Summary: ${jiraTicket.summary}
-Description:
-${jiraTicket.description}
+Add local state [expandedItems, setExpandedItems]
+Pass expandedItems + onExpandedItemsChange to <SimpleTreeView>
+Checkboxes Not Visually Updating
 
-2) GitHub Pull Request:
-Number: ${githubPR.number}
-Title: ${githubPR.title}
-Author: ${githubPR.author || ''}
-Created: ${githubPR.createdAt || ''}
-// etc.
+Remove the TreeView’s built-in selection usage if you’re doing custom checkboxes.
+Just keep the manual selectedItems array and your <Checkbox checked={selectedItems.includes(node.id)} />.
+No Clear Confirmation of Concatenation
 
-3) Concatenated Code:
-${concatenatedFiles}
+Display a quick success message or Alert after the files are concatenated.
+Possibly scroll to or highlight your <pre> block.
+No Visible Check When Folder is Clicked
 
-4) Additional Reference Files:
-${(additionalFiles || []).join('\n')}
+Already partially solved by your getAllChildPaths logic. Make sure your check logic is separate from the expansion logic, so checking a folder selects everything inside, and expand/collapse is purely a separate user action.
+With these adjustments, you’ll get:
 
-// ...
-Please provide your review with these guidelines:
-1. SUMMARY
-2. CRITICAL ISSUES
-3. RECOMMENDATIONS
-4. POSITIVE HIGHLIGHTS
-5. DETAILED BREAKDOWN
-`.trim();
-};
-Feel free to reorganize sections or add new bullet points for clarity.
-
-#Putting It All Together
-Jira: Strip out acceptance criteria and epics from the final JSON if unneeded.
-PR: Capture more data from GitHub by expanding your pulls.get payload.
-File Selection:
-Expand/collapse folders in the UI by ensuring your TreeItem has children.
-Skip or handle directories gracefully in /api/concatenate-files.
-(Optional) Implement recursive check if you want “folder check = all subfiles.”
-System Prompt: In ReviewSubmissionStep, replace the minimal preview with a direct call to generateSystemPrompt(), so the user sees the exact prompt that will be sent to the LLM.
-By doing these, you’ll have:
-
-A Jira step that shows only the relevant fields.
-A more comprehensive GitHub PR preview (author, creation date, labels, etc.).
-A file tree that truly expands subfolders and doesn’t fail if a directory is selected.
-A robust final system prompt that matches .cursorrules and ensures your LLM gets the full context.
+Folders that properly open/close.
+Checkboxes that reflect your real selection.
+A more obvious UI feedback once the files are concatenated.

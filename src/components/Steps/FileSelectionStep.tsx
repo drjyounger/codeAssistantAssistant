@@ -32,6 +32,7 @@ const FileSelectionStep: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [pr, setPR] = useState<GitHubPR | null>(null);
   const [concatenatedContent, setConcatenatedContent] = useState<string>('');
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const changedFiles = useMemo(() => pr?.changedFiles || [], [pr]);
 
@@ -86,6 +87,7 @@ const FileSelectionStep: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setShowSuccess(false);
 
     try {
       const prNumber = pr?.number?.toString() || '';
@@ -109,6 +111,13 @@ const FileSelectionStep: React.FC = () => {
 
       if (result.success && result.data) {
         setConcatenatedContent(result.data);
+        setShowSuccess(true);
+        // Scroll to the concatenated content
+        setTimeout(() => {
+          document.getElementById('concatenated-content')?.scrollIntoView({ 
+            behavior: 'smooth' 
+          });
+        }, 100);
       } else {
         throw new Error(result.error || 'Failed to concatenate files');
       }
@@ -136,6 +145,12 @@ const FileSelectionStep: React.FC = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {showSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Files successfully concatenated! Scroll down to view the result.
         </Alert>
       )}
 
@@ -196,16 +211,17 @@ const FileSelectionStep: React.FC = () => {
 
       {/* Display concatenated content */}
       {concatenatedContent && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="body2" fontWeight="bold">
-            Concatenated Files:
+        <Box sx={{ mt: 2 }} id="concatenated-content">
+          <Typography variant="h6" gutterBottom>
+            Concatenated Files
           </Typography>
           <pre style={{ 
             background: '#f5f5f5', 
             padding: '1rem',
             borderRadius: '4px',
             overflow: 'auto',
-            maxHeight: '400px'
+            maxHeight: '400px',
+            border: '1px solid #e0e0e0'
           }}>
             {concatenatedContent}
           </pre>
