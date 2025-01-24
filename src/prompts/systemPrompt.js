@@ -101,7 +101,7 @@ ${concatenatedFiles || ''}
 
 =====END CONCATENATED FILES=====
 
-Additional context files:
+Below are some files and information for additional context as it relates to the Jira ticket and pull request.  This may include the database schema, business context or coding and design standards:
 
 =====START ADDITIONAL CONTEXT FILES=====
 

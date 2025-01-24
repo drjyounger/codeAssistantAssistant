@@ -5,6 +5,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const fs = require('fs').promises;
 const { generateSystemPrompt } = require('../prompts/systemPrompt');
+const { generateCodeReview } = require('../services/LLMService');
 
 const app = express();
 app.use(cors());
@@ -166,16 +167,7 @@ app.post('/api/concatenate-files', async (req, res) => {
 app.post('/api/generate-review', async (req, res) => {
   try {
     const { jiraTicket, githubPR, concatenatedFiles, referenceFiles } = req.body;
-    console.log('[DEBUG] Generate review request received with:', {
-      hasJiraTicket: !!jiraTicket,
-      hasGithubPR: !!githubPR,
-      concatenatedFilesLength: concatenatedFiles?.length || 0,
-      referenceFiles: referenceFiles
-    });
-
-    const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-    const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
-
+    
     if (!concatenatedFiles) {
       return res.status(400).json({
         success: false,
@@ -183,48 +175,24 @@ app.post('/api/generate-review', async (req, res) => {
       });
     }
 
-    // Generate the prompt
-    const promptString = generateSystemPrompt({
+    const result = await generateCodeReview({
       jiraTicket,
       githubPR,
       concatenatedFiles,
-      additionalFiles: referenceFiles,
+      referenceFiles
     });
 
-    // Call Gemini API
-    const geminiResponse = await axios.post(
-      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [{
-            text: promptString
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          candidateCount: 1
-        }
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      }
-    );
-
-    // Safely extract the generated text
-    const generatedText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!generatedText) {
-      throw new Error('Unexpected response format from Gemini API');
+    if (!result.success) {
+      throw new Error(result.error);
     }
 
     res.json({
       success: true,
-      review: generatedText
+      review: result.data
     });
   } catch (error) {
     console.error('Error generating review:', error);
-    res.status(error.response?.status || 500).json({
+    res.status(500).json({
       success: false,
       error: error.message || 'Failed to generate review'
     });

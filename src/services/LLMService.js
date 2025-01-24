@@ -1,48 +1,16 @@
-import { ApiResponse } from '../types';
-import { generateSystemPrompt } from '../prompts/systemPrompt';
-
-interface ReviewRequest {
-  jiraTicket: any;
-  githubPR: any;
-  concatenatedFiles: string;
-  referenceFiles: string[];
-  systemPrompt: string;
-}
-
-interface ReviewResponse {
-  review: string;
-  suggestions: string[];
-  score: number;
-}
-
-interface ReferenceFileContent {
-  type: string;
-  name: string;
-  content: string;
-}
-
-interface CodeReviewParams {
-  jiraTicket: any;
-  githubPR: any;
-  concatenatedFiles: string;
-  referenceFiles: ReferenceFileContent[];
-}
-
-interface CodeReviewResponse {
-  success: boolean;
-  data?: string;
-  error?: string;
-}
+const { generateSystemPrompt } = require('../prompts/systemPrompt');
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
 
-export const generateCodeReview = async ({
-  jiraTicket,
-  githubPR,
-  concatenatedFiles,
-  referenceFiles
-}: CodeReviewParams): Promise<CodeReviewResponse> => {
+const GEMINI_CONFIG = {
+  temperature: 0.7,
+  candidateCount: 1,
+  // Explicitly NOT setting maxOutputTokens to allow Gemini to use its maximum context window
+  // Gemini-2.0-flash-exp has a large context window when maxOutputTokens is not specified
+};
+
+const generateCodeReview = async ({ jiraTicket, githubPR, concatenatedFiles, referenceFiles }) => {
   try {
     const promptString = generateSystemPrompt({
       jiraTicket,
@@ -62,10 +30,7 @@ export const generateCodeReview = async ({
             text: promptString
           }]
         }],
-        generationConfig: {
-          temperature: 0.7,
-          candidateCount: 1
-        }
+        generationConfig: GEMINI_CONFIG
       })
     });
 
@@ -99,4 +64,8 @@ export const generateCodeReview = async ({
         : 'Failed to generate review'
     };
   }
+};
+
+module.exports = {
+  generateCodeReview
 };
