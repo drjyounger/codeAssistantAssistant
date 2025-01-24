@@ -1,4 +1,4 @@
-# Design & Coding Standards
+export const designCodingStandards = `# Design & Coding Standards
 
 [Design and coding standards content will go here] 
 
@@ -10,4 +10,6 @@
 
 ## 4. File Formatting
 
-## 5. File Comments
+## 5. File Comments`;
+
+export default designCodingStandards;

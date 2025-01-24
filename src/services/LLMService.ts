@@ -15,11 +15,17 @@ interface ReviewResponse {
   score: number;
 }
 
+interface ReferenceFileContent {
+  type: string;
+  name: string;
+  content: string;
+}
+
 interface CodeReviewParams {
   jiraTicket: any;
   githubPR: any;
   concatenatedFiles: string;
-  referenceFiles: string[];
+  referenceFiles: ReferenceFileContent[];
 }
 
 interface CodeReviewResponse {
@@ -42,7 +48,7 @@ export const generateCodeReview = async ({
       jiraTicket,
       githubPR,
       concatenatedFiles,
-      additionalFiles: referenceFiles,
+      referenceFiles,
     });
 
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {

@@ -1,9 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-require('dotenv').config();
-const fs = require('fs').promises;
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const fs = require('fs').promises;
 const { generateSystemPrompt } = require('../prompts/systemPrompt');
 
 const app = express();
@@ -84,18 +84,38 @@ app.post('/api/local/directory', async (req, res) => {
 
 app.post('/api/local/file', async (req, res) => {
   try {
-    const { filePath } = req.body;
+    const { filePath, isReference } = req.body;
+    
+    console.log('[DEBUG] File request:', {
+      filePath,
+      isReference,
+      __dirname,
+      cwd: process.cwd()
+    });
 
-    if (!isPathSafe(filePath)) {
-      return res.status(403).json({ 
+    // Handle reference files differently
+    const absolutePath = isReference 
+      ? path.join(__dirname, '..', '..', filePath) // Go up two levels to project root
+      : path.resolve(process.cwd(), filePath);
+
+    console.log('[DEBUG] Resolved path:', absolutePath);
+
+    // Verify file exists
+    try {
+      await fs.access(absolutePath);
+    } catch (err) {
+      console.error('[DEBUG] File not found:', absolutePath);
+      return res.status(404).json({ 
         success: false, 
-        error: 'Access to this file is not allowed for security reasons' 
+        error: `File not found: ${filePath}` 
       });
     }
 
-    const content = await fs.readFile(filePath, 'utf8');
+    // Read and return file content
+    const content = await fs.readFile(absolutePath, 'utf8');
     res.json({ success: true, content });
   } catch (error) {
+    console.error('[DEBUG] Error reading file:', error);
     res.status(500).json({ 
       success: false, 
       error: `Failed to read file: ${error.message}` 
@@ -146,6 +166,13 @@ app.post('/api/concatenate-files', async (req, res) => {
 app.post('/api/generate-review', async (req, res) => {
   try {
     const { jiraTicket, githubPR, concatenatedFiles, referenceFiles } = req.body;
+    console.log('[DEBUG] Generate review request received with:', {
+      hasJiraTicket: !!jiraTicket,
+      hasGithubPR: !!githubPR,
+      concatenatedFilesLength: concatenatedFiles?.length || 0,
+      referenceFiles: referenceFiles
+    });
+
     const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
     const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
 
@@ -220,6 +247,13 @@ async function readDirRecursive(dirPath) {
 }
 
 function isPathSafe(filePath) {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  
+  // Explicitly allow reference files
+  if (normalizedPath.includes('references/')) {
+    return true;
+  }
+  
   // Prevent reading sensitive directories
   const sensitivePatterns = [
     /\/\.git\//,
@@ -229,7 +263,8 @@ function isPathSafe(filePath) {
     /\/\.aws\//
   ];
   
-  return !sensitivePatterns.some(pattern => pattern.test(filePath));
+  const isSafe = !sensitivePatterns.some(pattern => pattern.test(normalizedPath));
+  return isSafe;
 }
 
 const PORT = process.env.PORT || 3001;

@@ -99,3 +99,37 @@ interface DirectoryResponse {
     }
   };
   
+  /**
+   * readReferenceFile
+   * Specifically handles reading reference files with proper path resolution
+   */
+  export const readReferenceFile = async (filePath: string): Promise<string> => {
+    try {
+      console.log('[DEBUG] Reading reference file:', filePath);
+      
+      const response = await fetch('/api/local/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          filePath,
+          isReference: true  // This flag is crucial
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('[DEBUG] Failed to read reference file:', response.statusText);
+        throw new Error(`Failed to read reference file: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.success || !data.content) {
+        throw new Error('Invalid response format from server');
+      }
+
+      return data.content;
+    } catch (error) {
+      console.error('[DEBUG] Error reading reference file:', error);
+      throw error;
+    }
+  };
+  

@@ -7,7 +7,7 @@ The project is a multi-step wizard:
 
 # STEP 1 # 
 
-Jira Ticket - pasting in a Jira ticket number to retrieve the entire ticket details
+Jira Ticket - pasting in a Jira ticket number to retrieve the entire ticket details, allow entering multiple ticket numbers separated by commas.
 
 # STEP 2 # 
 

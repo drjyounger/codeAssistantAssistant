@@ -10,34 +10,8 @@ import {
   Checkbox,
   Alert
 } from '@mui/material';
-
-interface ReferenceFile {
-  id: string;
-  name: string;
-  type: 'coding-standard' | 'schema' | 'reference' | 'business-context';
-  path: string;
-}
-
-const REFERENCE_FILES: ReferenceFile[] = [
-  {
-    id: 'coding-standards',
-    name: 'Design & Coding Standards',
-    type: 'coding-standard',
-    path: '/references/designCodingStandards.md'
-  },
-  {
-    id: 'db-schema',
-    name: 'Database Schema',
-    type: 'schema',
-    path: '/references/databaseSchema.md'
-  },
-  {
-    id: 'business-context',
-    name: 'Business Context',
-    type: 'business-context',
-    path: '/references/businessContext.md'
-  }
-];
+import { REFERENCE_FILES, ReferenceFile } from '../../references/referenceManifest';
+import { readReferenceFile } from '../../services/LocalFileService';
 
 const AdditionalFilesStep: React.FC = () => {
   const navigate = useNavigate();
@@ -62,10 +36,28 @@ const AdditionalFilesStep: React.FC = () => {
     setSelectedFiles(newSelected);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     try {
-      // Store selected reference files
-      localStorage.setItem('referenceFiles', JSON.stringify(Array.from(selectedFiles)));
+      // Store selected reference file IDs
+      const selectedFilesArray = Array.from(selectedFiles);
+      localStorage.setItem('selectedReferenceIds', JSON.stringify(selectedFilesArray));
+      
+      // Also store the actual reference file contents
+      const referenceContents: Record<string, string> = {};
+      
+      for (const fileId of selectedFilesArray) {
+        const referenceFile = REFERENCE_FILES.find(f => f.id === fileId);
+        if (referenceFile) {
+          try {
+            const content = await readReferenceFile(referenceFile.path);
+            referenceContents[fileId] = content;
+          } catch (err) {
+            console.error(`Failed to read reference file ${fileId}:`, err);
+          }
+        }
+      }
+      
+      localStorage.setItem('referenceContents', JSON.stringify(referenceContents));
       navigate('/submit-review');
     } catch (err) {
       setError('Failed to save selected reference files');

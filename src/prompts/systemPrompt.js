@@ -2,14 +2,60 @@ const generateSystemPrompt = ({
   jiraTicket,
   githubPR,
   concatenatedFiles,
-  additionalFiles
+  referenceFiles
 }) => {
+  console.log('[DEBUG] generateSystemPrompt received referenceFiles:', referenceFiles);
+  
   const jiraKey = jiraTicket?.key || 'N/A';
   const prNumber = githubPR?.number || 'N/A';
   const prTitle = githubPR?.title || 'N/A';
   const prDescription = githubPR?.description || 'N/A';
   const changedFilesCount = githubPR?.changedFiles?.length || 0;
 
+  // Format reference files with their contents
+  console.log('[DEBUG] Processing reference files...');
+  const formattedReferenceFiles = Array.isArray(referenceFiles) && referenceFiles.length > 0
+    ? referenceFiles
+        .map(file => {
+          console.log(`[DEBUG] Formatting reference file: ${file.name}`, {
+            contentLength: file.content.length,
+            type: file.type
+          });
+
+          // Special handling for each type of reference file
+          let formattedContent = '';
+          switch (file.type) {
+            case 'schema':
+              formattedContent = `Database Schema:\n${file.content}`;
+              break;
+            case 'business-context':
+              formattedContent = `Business Context:\n${file.content}`;
+              break;
+            case 'coding-standard':
+              formattedContent = `Design & Coding Standards:\n${file.content}`;
+              break;
+            default:
+              formattedContent = `${file.name}:\n${file.content}`;
+          }
+
+          return `
+=== ${file.name} ===
+Type: ${file.type}
+
+${formattedContent}
+
+=== End ${file.name} ===
+`;
+        })
+        .join('\n\n')
+    : 'No additional reference files selected.';
+
+  console.log('[DEBUG] Formatted reference files:', {
+    length: formattedReferenceFiles.length,
+    isEmpty: formattedReferenceFiles === 'No additional reference files selected.',
+    preview: formattedReferenceFiles.substring(0, 200) + '...'
+  });
+  
   return `You are an expert-level code reviewer for the product and engineering team at TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
 
 Your job is to review all of the information below and provide a comprehensive, actionable code review.  
@@ -59,7 +105,7 @@ Additional context files:
 
 =====START ADDITIONAL CONTEXT FILES=====
 
-${(additionalFiles || []).join('\n')}
+${formattedReferenceFiles}
 
 =====END ADDITIONAL CONTEXT FILES=====
 
@@ -124,7 +170,11 @@ Suggested improvements categorized by:
 Well-implemented aspects of the code
 
 5. DETAILED BREAKDOWN
-File-by-file analysis of significant changes
+File-by-file analysis of significant changes that were made to the code and the reasoning behind the changes.
+
+6. A HIGHLY DETAILED INSTRUCTION GUIDE FOR IMPLEMENTING FIXES TO CRITICAL ISSUES
+This guide should reference every file (including path) that needs to be changed to address the critical issues and the specific lines of code that need to be changed, and what the changes should be.
+Critical issues would be things like: - not meeting acceptance criteria, bugs, changes that would break other functionality, glaring security vulnerabilities, etc.
 
 You may be working with a beginner coder, or a developer new to the team.  So remember to be always thorough, highly-detailed and actionable in your feedback.  Reference specific files and lines of code and providing specific examples and suggested solutions where applicable.`;
 };

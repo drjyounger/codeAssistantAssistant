@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { generateCodeReview } from '../../services/LLMService';
 import { generateSystemPrompt } from '../../prompts/systemPrompt';
+import { REFERENCE_FILES } from '../../references/referenceManifest';
 
 interface JiraTicket {
   key: string;
@@ -23,40 +24,18 @@ interface GithubPR {
   changedFiles: any[]; // Consider making this more specific
 }
 
+// Add interface for reference file structure
+interface ReferenceFileContent {
+  type: string;
+  name: string;
+  content: string;
+}
+
 const ReviewSubmissionStep: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [promptPreview, setPromptPreview] = useState<string>('');
-
-  const validateData = (
-    jiraTicket: any,
-    githubPR: any,
-    concatenatedFiles: string,
-    referenceFiles: string[]
-  ): { isValid: boolean; error?: string } => {
-    // Validate Jira Ticket
-    if (!jiraTicket?.key) {
-      return { isValid: false, error: 'Invalid Jira ticket data. Please return to Step 1.' };
-    }
-
-    // Validate GitHub PR
-    if (!githubPR?.number || !githubPR?.title || !githubPR?.changedFiles) {
-      return { isValid: false, error: 'Invalid GitHub PR data. Please return to Step 2.' };
-    }
-
-    // Validate Concatenated Files
-    if (!concatenatedFiles || concatenatedFiles.length === 0) {
-      return { isValid: false, error: 'No files selected for review. Please return to Step 3.' };
-    }
-
-    // Reference files can be empty, but should be an array
-    if (!Array.isArray(referenceFiles)) {
-      return { isValid: false, error: 'Invalid reference files format. Please return to Step 4.' };
-    }
-
-    return { isValid: true };
-  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -68,21 +47,26 @@ const ReviewSubmissionStep: React.FC = () => {
       const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
       const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
-      const referenceFiles = JSON.parse(localStorage.getItem('referenceFiles') || '[]');
+      const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
 
-      console.log('[client] [Step5:ReviewSubmission] Data collected:', {
-        jiraTicket,
-        githubPR,
-        concatenatedFilesLength: concatenatedFiles.length,
-        referenceFiles
+      // Convert referenceContents into the format expected by the LLM
+      const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {
+        const referenceFile = REFERENCE_FILES.find(f => f.id === fileId);
+        return {
+          type: referenceFile?.type || 'unknown',
+          name: referenceFile?.name || fileId,
+          content: content as string
+        };
       });
+
+      console.log('[DEBUG] Final references being submitted:', validReferenceFiles);
 
       console.log('[client] [Step5:ReviewSubmission] Sending data to LLM...');
       const review = await generateCodeReview({
         jiraTicket,
         githubPR,
         concatenatedFiles,
-        referenceFiles
+        referenceFiles: validReferenceFiles
       });
 
       if (review.success) {
@@ -107,13 +91,23 @@ const ReviewSubmissionStep: React.FC = () => {
       const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
       const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
-      const referenceFiles = JSON.parse(localStorage.getItem('referenceFiles') || '[]');
+      const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
+
+      // Convert referenceContents into the format expected by the LLM
+      const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {
+        const referenceFile = REFERENCE_FILES.find(f => f.id === fileId);
+        return {
+          type: referenceFile?.type || 'unknown',
+          name: referenceFile?.name || fileId,
+          content: content as string
+        };
+      });
 
       const promptString = generateSystemPrompt({
         jiraTicket,
         githubPR,
         concatenatedFiles,
-        additionalFiles: referenceFiles
+        referenceFiles: validReferenceFiles
       });
 
       setPromptPreview(promptString);
