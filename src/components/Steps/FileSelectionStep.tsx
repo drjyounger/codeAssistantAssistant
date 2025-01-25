@@ -13,8 +13,8 @@ import {
 } from '@mui/material';
 
 import { FileTree } from '../FileTree';
-import { concatenateFiles } from '../../services/FileService';
 import { GitHubPR, GitHubFile } from '../../types';
+import { formatConcatenatedFiles } from '../../utils';
 
 interface FileTreeProps {
   rootPath: string;
@@ -90,37 +90,32 @@ const FileSelectionStep: React.FC = () => {
     setShowSuccess(false);
 
     try {
-      const prNumber = pr?.number?.toString() || '';
+      // Function to get file content
+      const getFileContent = async (filePath: string): Promise<string> => {
+        const response = await fetch('/api/local/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath })
+        });
+        
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error);
+        return data.content;
+      };
+
+      const finalContent = await formatConcatenatedFiles(selectedFiles, getFileContent);
+      setConcatenatedContent(finalContent);
+      setShowSuccess(true);
       
-      const response = await fetch('/api/concatenate-files', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          files: selectedFiles,
-          prNumber
-        }),
-      });
+      // Store in localStorage for next step
+      localStorage.setItem('concatenatedFiles', finalContent);
 
-      if (!response.ok) {
-        throw new Error(`Failed to concatenate files: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        setConcatenatedContent(result.data);
-        setShowSuccess(true);
-        // Scroll to the concatenated content
-        setTimeout(() => {
-          document.getElementById('concatenated-content')?.scrollIntoView({ 
-            behavior: 'smooth' 
-          });
-        }, 100);
-      } else {
-        throw new Error(result.error || 'Failed to concatenate files');
-      }
+      // Scroll to the concatenated content
+      setTimeout(() => {
+        document.getElementById('concatenated-content')?.scrollIntoView({ 
+          behavior: 'smooth' 
+        });
+      }, 100);
     } catch (err) {
       console.error('Error processing files:', err);
       setError(err instanceof Error ? err.message : 'Failed to process selected files');

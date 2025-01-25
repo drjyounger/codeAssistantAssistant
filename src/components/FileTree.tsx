@@ -1,42 +1,59 @@
 // src/components/FileTree.tsx
 
 import React, { useEffect, useState } from 'react';
-import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { ExpandMore, ChevronRight, Folder, InsertDriveFile } from '@mui/icons-material';
-import { Box, Checkbox, CircularProgress, Typography } from '@mui/material';
-
-import { FileNode, GitHubFile } from '../types';
-import { readLocalDirectory } from '../services/LocalFileService';
+import Tree from 'rc-tree';
+import 'rc-tree/assets/index.css';
+import { Box, CircularProgress } from '@mui/material';
+import type { DataNode } from 'rc-tree/lib/interface';
+import type { Key } from 'rc-tree/lib/interface';
+import { GitHubFile } from '../types';
+import { isTextFile } from '../services/FileService';
 
 interface FileTreeProps {
   rootPath: string;
-  onSelect: (files: string[]) => void;
+  onSelect: (paths: string[]) => void;
   changedFiles?: GitHubFile[];
   onError: (error: Error) => void;
 }
 
-interface TreeNode {
-  id: string;
-  name: string;
-  isDirectory: boolean;
-  children?: TreeNode[];
-}
+const getAllFilesInDirectory = async (dirPath: string): Promise<string[]> => {
+  try {
+    const response = await fetch('/api/local/directory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderPath: dirPath })
+    });
+    const resData = await response.json();
+    if (!resData.success) throw new Error(resData.error);
 
-/**
- * Renders a TreeView of the local file system starting at rootPath.
- * Allows checkbox selection of files/folders. "changedFiles" are pre-selected.
- */
+    let files: string[] = [];
+    for (const item of resData.data) {
+      if (item.isDirectory) {
+        // Always go deeper
+        const subFiles = await getAllFilesInDirectory(item.id);
+        files = files.concat(subFiles);
+      } else {
+        files.push(item.id);
+      }
+    }
+    return files;
+  } catch (err) {
+    console.error('Error scanning directory:', err);
+    return [];
+  }
+};
+
 export const FileTree: React.FC<FileTreeProps> = ({
   rootPath,
   onSelect,
   changedFiles = [],
   onError
 }) => {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const [treeData, setTreeData] = useState<TreeNode | null>(null);
+  const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
+  const [nodeMap, setNodeMap] = useState<Record<string, { isDirectory: boolean }>>({});
+  const [checkedKeysState, setCheckedKeysState] = useState<Key[]>([]);
 
   useEffect(() => {
     const fetchDirectory = async () => {
@@ -46,10 +63,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
       try {
         const response = await fetch('/api/local/directory', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ rootPath }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderPath: rootPath, recursive: true })
         });
 
         if (!response.ok) {
@@ -58,14 +73,27 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
         const data = await response.json();
         if (data.success && data.data) {
-          setTreeData({
+          const newNodeMap: Record<string, { isDirectory: boolean }> = {};
+          
+          const transformNode = (node: any): DataNode => {
+            newNodeMap[node.id] = { isDirectory: node.isDirectory };
+            
+            return {
+              key: node.id,
+              title: node.name,
+              children: node.children?.map(transformNode)
+            };
+          };
+
+          const rootNode = transformNode({
             id: rootPath,
             name: rootPath.split('/').pop() || rootPath,
             isDirectory: true,
             children: data.data
           });
-        } else {
-          throw new Error(data.error || 'Failed to load directory structure');
+
+          setNodeMap(newNodeMap);
+          setTreeData([rootNode]);
         }
       } catch (error) {
         onError(error instanceof Error ? error : new Error('Unknown error occurred'));
@@ -77,104 +105,31 @@ export const FileTree: React.FC<FileTreeProps> = ({
     fetchDirectory();
   }, [rootPath, onError]);
 
-  // New helper function to get all child node IDs
-  const getAllChildIds = (node: TreeNode): string[] => {
-    let ids: string[] = [node.id];
-    if (node.children) {
-      node.children.forEach(child => {
-        ids = [...ids, ...getAllChildIds(child)];
-      });
-    }
-    return ids;
-  };
+  const onCheck = async (
+    checkedKeysParam: Key[] | { checked: Key[]; halfChecked: Key[] }
+  ) => {
+    const newChecked = Array.isArray(checkedKeysParam) 
+      ? checkedKeysParam 
+      : checkedKeysParam.checked;
 
-  // New helper function to find a node by ID
-  const findNode = (id: string, node: TreeNode): TreeNode | null => {
-    if (node.id === id) return node;
-    if (node.children) {
-      for (const child of node.children) {
-        const found = findNode(id, child);
-        if (found) return found;
+    setCheckedKeysState(newChecked);
+
+    let allFiles: string[] = [];
+
+    for (const key of newChecked) {
+      const nodePath = key.toString();
+      const node = nodeMap[nodePath];
+
+      if (node?.isDirectory) {
+        const filesInDir = await getAllFilesInDirectory(nodePath);
+        allFiles = [...allFiles, ...filesInDir];
+      } else if (isTextFile(nodePath)) {
+        allFiles.push(nodePath);
       }
     }
-    return null;
-  };
 
-  // Helper to get all child file paths from a directory
-  const getAllChildPaths = (node: TreeNode): string[] => {
-    let paths: string[] = [];
-    if (!node.isDirectory) {
-      paths.push(node.id);
-    } else if (node.children) {
-      node.children.forEach(child => {
-        paths = [...paths, ...getAllChildPaths(child)];
-      });
-    }
-    return paths;
-  };
-
-  // Updated selection handler
-  const handleSelectedChange = (nodeId: string) => {
-    setSelectedItems(prev => {
-      const node = treeData ? findNode(nodeId, treeData) : null;
-      if (!node) return prev;
-
-      const newSelection = new Set(prev);
-      const isCurrentlySelected = newSelection.has(nodeId);
-      
-      // Get all child paths if this is a directory
-      const pathsToToggle = node.isDirectory ? getAllChildPaths(node) : [nodeId];
-      
-      pathsToToggle.forEach(path => {
-        if (isCurrentlySelected) {
-          newSelection.delete(path);
-        } else {
-          newSelection.add(path);
-        }
-      });
-
-      const result = Array.from(newSelection);
-      onSelect(result);
-      return result;
-    });
-  };
-
-  const getNodeIcon = (node: TreeNode) => {
-    return node.isDirectory ? <Folder color="primary" /> : <InsertDriveFile />;
-  };
-
-  const renderTree = (node: TreeNode) => {
-    if (!node || !node.id) return null;
-
-    return (
-      <TreeItem
-        key={node.id}
-        itemId={node.id}
-        label={
-          <Box sx={{ display: 'flex', alignItems: 'center', py: 0.5 }}>
-            <Checkbox
-              checked={selectedItems.includes(node.id)}
-              onChange={() => handleSelectedChange(node.id)}
-              onClick={(e) => e.stopPropagation()}
-              size="small"
-            />
-            {getNodeIcon(node)}
-            <Typography sx={{ ml: 1 }}>
-              {node.name}
-            </Typography>
-          </Box>
-        }
-        sx={{
-          '& .MuiTreeItem-content': {
-            padding: '4px 0'
-          }
-        }}
-      >
-        {Array.isArray(node.children)
-          ? node.children.map((child) => renderTree(child))
-          : null}
-      </TreeItem>
-    );
+    const uniqueFiles = Array.from(new Set(allFiles));
+    onSelect(uniqueFiles);
   };
 
   if (loading) {
@@ -185,29 +140,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
     );
   }
 
-  if (!treeData) {
-    return null;
-  }
-
   return (
     <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 1 }}>
-      <SimpleTreeView
-        expandedItems={expandedItems}
-        onExpandedItemsChange={(_, newExpanded) => setExpandedItems(newExpanded)}
-        aria-label="file system navigator"
-        slots={{
-          expandIcon: ChevronRight,
-          collapseIcon: ExpandMore
-        }}
-        sx={{
-          height: '400px',
-          flexGrow: 1,
-          maxWidth: '100%',
-          overflowY: 'auto'
-        }}
-      >
-        {renderTree(treeData)}
-      </SimpleTreeView>
+      <Tree
+        checkable
+        treeData={treeData}
+        onCheck={onCheck}
+        checkedKeys={checkedKeysState}
+        onExpand={setExpandedKeys}
+        expandedKeys={expandedKeys}
+        defaultExpandAll={false}
+        autoExpandParent={true}
+        checkStrictly={false}
+      />
     </Box>
   );
 };

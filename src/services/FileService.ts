@@ -129,66 +129,9 @@ export const getDirectoryTree = async (rootPath: string): Promise<FileNode> => {
   }
 };
 
-/**
- * concatenateFiles
- * For each selected path:
- *   - read local file
- *   - skip if not text or in standard library dir
- *   - append to a big markdown
- */
-export const concatenateFiles = async (
-  selectedPaths: string[],
-  prNumber: string // currently unused in the local approach
-): Promise<ApiResponse<string>> => {
-  try {
-    const timestamp = new Date().toISOString();
-    let concatenated = `# Code Review Context\n\n`;
-    concatenated += `Generated: ${timestamp}\n\n`;
-
-    // Table of contents
-    concatenated += `## Selected Files\n\n`;
-    selectedPaths.forEach((path) => {
-      concatenated += `- ${path}\n`;
-    });
-    concatenated += `\n---\n\n`;
-
-    // Process each selected file
-    for (const path of selectedPaths) {
-      if (isStandardLibraryPath(path)) {
-        continue;
-      }
-      // Example: skip non-text files
-      const filename = path.split('/').pop() || '';
-      if (!isTextFile(filename)) {
-        continue;
-      }
-
-      try {
-        // 1) Read the file content from local
-        const fileContent = await readLocalFile(path);
-        // 2) Derive language from file extension
-        const language = getLanguageFromExtension(path);
-
-        // 3) Append to concatenated markdown
-        concatenated += `## File: ${path}\n\n`;
-        concatenated += `\`\`\`${language}\n${fileContent}\n\`\`\`\n\n`;
-        concatenated += `---\n\n`;
-      } catch (error) {
-        console.error(`Error processing file ${path}:`, error);
-        concatenated += `## File: ${path}\n\n`;
-        concatenated += `[Error reading file]\n\n---\n\n`;
-      }
-    }
-
-    return {
-      success: true,
-      data: concatenated,
-    };
-  } catch (error) {
-    console.error('Error concatenating files:', error);
-    return {
-      success: false,
-      error: 'Failed to concatenate selected files',
-    };
-  }
-};
+// export const concatenateFiles = async (
+//   selectedPaths: string[],
+//   prNumber: string
+// ): Promise<ApiResponse<string>> => {
+//   ...
+// };

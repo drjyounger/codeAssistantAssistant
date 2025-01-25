@@ -51,31 +51,57 @@ app.get('/api/jira/ticket/:ticketNumber', async (req, res) => {
   }
 });
 
-app.post('/api/local/directory', async (req, res) => {
-  try {
-    const { rootPath } = req.body;
-    
-    if (!isPathSafe(rootPath)) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Access to this directory is not allowed for security reasons' 
-      });
-    }
+// Helper function to safely check paths
+const isPathSafe = (basePath, targetPath) => {
+  const resolvedPath = path.resolve(targetPath);
+  const resolvedBasePath = path.resolve(basePath);
+  return resolvedPath.startsWith(resolvedBasePath);
+};
 
-    const items = await fs.readdir(rootPath, { withFileTypes: true });
-    
-    const dirStructure = await Promise.all(items.map(async (item) => {
-      const fullPath = path.join(rootPath, item.name);
-      return {
+// Helper function to read directory recursively
+const readDirRecursive = async (dirPath) => {
+  const items = await fs.readdir(dirPath, { withFileTypes: true });
+  const result = [];
+
+  for (const item of items) {
+    const fullPath = path.join(dirPath, item.name);
+    if (item.isDirectory()) {
+      const children = await readDirRecursive(fullPath);
+      result.push({
         id: fullPath,
         name: item.name,
-        isDirectory: item.isDirectory(),
-        children: item.isDirectory() ? await readDirRecursive(fullPath) : null
-      };
-    }));
+        isDirectory: true,
+        children
+      });
+    } else {
+      result.push({
+        id: fullPath,
+        name: item.name,
+        isDirectory: false
+      });
+    }
+  }
 
-    res.json({ success: true, data: dirStructure });
+  return result;
+};
+
+app.post('/api/local/directory', async (req, res) => {
+  try {
+    const { folderPath } = req.body;
+    if (!folderPath) {
+      return res.status(400).json({ success: false, error: 'No folder path provided' });
+    }
+
+    // Verify the path exists and is a directory
+    const stats = await fs.stat(folderPath);
+    if (!stats.isDirectory()) {
+      return res.status(400).json({ success: false, error: 'Path is not a directory' });
+    }
+
+    const data = await readDirRecursive(folderPath);
+    res.json({ success: true, data });
   } catch (error) {
+    console.error('Error reading directory:', error);
     res.status(500).json({ 
       success: false, 
       error: `Failed to read directory: ${error.message}` 
@@ -124,45 +150,7 @@ app.post('/api/local/file', async (req, res) => {
   }
 });
 
-app.post('/api/concatenate-files', async (req, res) => {
-  try {
-    const { files, prNumber } = req.body;
-
-    if (!Array.isArray(files) || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No files selected for concatenation'
-      });
-    }
-
-    // Read and concatenate all files
-    const fileContents = await Promise.all(
-      files.map(async (filePath) => {
-        try {
-          const content = await fs.readFile(filePath, 'utf8');
-          const fileName = path.basename(filePath);
-          return `\n\n# File: ${fileName}\n\`\`\`\n${content}\n\`\`\``;
-        } catch (err) {
-          console.error(`Error reading file ${filePath}:`, err);
-          return `\n\n# Error reading file: ${filePath}\n`;
-        }
-      })
-    );
-
-    const concatenatedContent = fileContents.join('\n');
-
-    res.json({
-      success: true,
-      data: concatenatedContent
-    });
-  } catch (error) {
-    console.error('Error concatenating files:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to concatenate files'
-    });
-  }
-});
+// app.post('/api/concatenate-files', async (req, res) => { ... });
 
 app.post('/api/generate-review', async (req, res) => {
   try {
@@ -198,42 +186,6 @@ app.post('/api/generate-review', async (req, res) => {
     });
   }
 });
-
-// Helper function for recursive directory reading
-async function readDirRecursive(dirPath) {
-  const items = await fs.readdir(dirPath, { withFileTypes: true });
-  const result = await Promise.all(items.map(async (item) => {
-    const fullPath = path.join(dirPath, item.name);
-    return {
-      id: fullPath,
-      name: item.name,
-      isDirectory: item.isDirectory(),
-      children: item.isDirectory() ? await readDirRecursive(fullPath) : null
-    };
-  }));
-  return result;
-}
-
-function isPathSafe(filePath) {
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  
-  // Explicitly allow reference files
-  if (normalizedPath.includes('references/')) {
-    return true;
-  }
-  
-  // Prevent reading sensitive directories
-  const sensitivePatterns = [
-    /\/\.git\//,
-    /\/node_modules\//,
-    /\/\.env/,
-    /\/\.ssh\//,
-    /\/\.aws\//
-  ];
-  
-  const isSafe = !sensitivePatterns.some(pattern => pattern.test(normalizedPath));
-  return isSafe;
-}
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
