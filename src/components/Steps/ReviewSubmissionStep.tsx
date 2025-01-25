@@ -11,18 +11,7 @@ import {
 import { generateCodeReview } from '../../services/LLMService';
 import { generateSystemPrompt } from '../../prompts/systemPrompt';
 import { REFERENCE_FILES } from '../../references/referenceManifest';
-
-interface JiraTicket {
-  key: string;
-  // Add other required Jira ticket fields
-}
-
-interface GithubPR {
-  number: string;
-  title: string;
-  description: string;
-  changedFiles: any[]; // Consider making this more specific
-}
+import { JiraTicket } from '../../types';
 
 // Add interface for reference file structure
 interface ReferenceFileContent {
@@ -44,8 +33,7 @@ const ReviewSubmissionStep: React.FC = () => {
     console.log('[client] [Step5:ReviewSubmission] Collecting stored data for LLM submission...');
     
     try {
-      const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
-      const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
+      const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
 
@@ -63,8 +51,7 @@ const ReviewSubmissionStep: React.FC = () => {
 
       console.log('[client] [Step5:ReviewSubmission] Sending data to LLM...');
       const review = await generateCodeReview({
-        jiraTicket,
-        githubPR,
+        jiraTickets,
         concatenatedFiles,
         referenceFiles: validReferenceFiles
       });
@@ -88,8 +75,7 @@ const ReviewSubmissionStep: React.FC = () => {
 
   const handlePreviewPrompt = () => {
     try {
-      const jiraTicket = JSON.parse(localStorage.getItem('jiraTicket') || '{}');
-      const githubPR = JSON.parse(localStorage.getItem('githubPRs') || '{}');
+      const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
 
@@ -104,8 +90,7 @@ const ReviewSubmissionStep: React.FC = () => {
       });
 
       const promptString = generateSystemPrompt({
-        jiraTicket,
-        githubPR,
+        jiraTickets,
         concatenatedFiles,
         referenceFiles: validReferenceFiles
       });
@@ -153,7 +138,6 @@ const ReviewSubmissionStep: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Display prompt preview */}
       {promptPreview && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" fontWeight="bold">

@@ -10,11 +10,10 @@ const GEMINI_CONFIG = {
   // Gemini-2.0-flash-exp has a large context window when maxOutputTokens is not specified
 };
 
-const generateCodeReview = async ({ jiraTicket, githubPR, concatenatedFiles, referenceFiles }) => {
+const generateCodeReview = async ({ jiraTickets, concatenatedFiles, referenceFiles }) => {
   try {
     const promptString = generateSystemPrompt({
-      jiraTicket,
-      githubPR,
+      jiraTickets,
       concatenatedFiles,
       referenceFiles,
     });
@@ -47,7 +46,9 @@ const generateCodeReview = async ({ jiraTicket, githubPR, concatenatedFiles, ref
     const generatedText = result.candidates[0].content.parts[0].text;
 
     if (!generatedText.includes('1. SUMMARY') || 
-        !generatedText.includes('2. CRITICAL ISSUES')) {
+        !generatedText.includes('2. AFFECTED FILES') ||
+        !generatedText.includes('3. A HIGHLY DETAILED INSTRUCTION GUIDE') ||
+        !generatedText.includes('4. DETAILED BREAKDOWN OF RECOMMENDED CHANGES')) {
       throw new Error('Generated review does not contain the required sections');
     }
 

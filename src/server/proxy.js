@@ -154,7 +154,7 @@ app.post('/api/local/file', async (req, res) => {
 
 app.post('/api/generate-review', async (req, res) => {
   try {
-    const { jiraTicket, githubPR, concatenatedFiles, referenceFiles } = req.body;
+    const { jiraTicket, concatenatedFiles, referenceFiles } = req.body;
     
     if (!concatenatedFiles) {
       return res.status(400).json({
@@ -165,7 +165,6 @@ app.post('/api/generate-review', async (req, res) => {
 
     const result = await generateCodeReview({
       jiraTicket,
-      githubPR,
       concatenatedFiles,
       referenceFiles
     });

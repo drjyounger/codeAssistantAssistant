@@ -5,14 +5,15 @@ const API_BASE_URL = 'http://localhost:3001/api';
 
 export const getTicketDetails = async (ticketNumber: string): Promise<ApiResponse<JiraTicket>> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/jira/ticket/${ticketNumber}`);
+    const response = await axios.get(`${API_BASE_URL}/jira/ticket/${ticketNumber.trim()}`);
     const data = response.data;
 
-    // Simplified ticket with only key, summary, and description
+    // Enhanced ticket with more fields if needed
     const ticket: JiraTicket = {
       key: data.key,
       summary: data.fields.summary,
       description: data.fields.description || '',
+      // Add any other fields you need from the Jira response
     };
 
     return {

@@ -1,5 +1,11 @@
 1. Project Overview
-Goal: Assist a beginner developer to build a web application that automates and simplifies AI-based code reviews. The system integrates with Jira and GitHub, gathers relevant code/files automatically, and sends a comprehensive prompt to an LLM.  
+Goal: Assist a beginner developer to build an a.i. coding assistant.
+
+The user will provide the coding assistant with all the Jira ticket details by pasting in a Jira ticket number.  The assistant will also be given a large file that contains concatentated files related to the Jira ticking implemenation.  
+
+There is a checkbox-based file directory tree navigation UI that allows the user to select the files that are relevant to the ticket to be included in the concatenation.  
+
+There are also a number of additional reference files that can optionally be included in the prompt that is sent via api call to the LLM.
 
 Because you are working with a beginner code, always be explicit and detailed about which files to change, how to change them, and where exactly the files are located.
 
@@ -7,13 +13,9 @@ The project is a multi-step wizard:
 
 # STEP 1 # 
 
-Jira Ticket - pasting in a Jira ticket number to retrieve the entire ticket details, allow entering multiple ticket numbers separated by commas.
+Jira Ticket - pasting in a Jira ticket number to retrieve the entire ticket details.  It should be possible to include and reference multiple tickets by separating them with commas.  The contents of all Jira indicated would be retrieved and included in the LLM prompt.
 
 # STEP 2 # 
-
-GitHub PR - pasting in a GitHub pull request number to retrieve the pull request details, diffs, and changed files - showing the code files that were worked on and changes.
-
-# STEP 3 # 
 
 Selective File Concatenation - using a checkbox-based file directory tree navigation UI to navigate locally and select all the files that are relevant to the ticket and pull request. 
 1.  Allow the user to enter a root directory path as a starting point
@@ -23,138 +25,46 @@ Selective File Concatenation - using a checkbox-based file directory tree naviga
 5. When "Next" is clicked, the system then concatenates all the selected files, according to the logic rules outlined in the program
 6.  It should have an easy-to-use UI
 
-Note: We're not concatentating from the repos, we're selecting local files and folders to concatenate into the markdown file.  So the concatention is a local tree navigation with checkboxes and doesn't require the github call.
+Note: We're selecting local files and folders to concatenate into the markdown file.  So the concatention is a local tree navigation with checkboxes.
 
-So for example:
+# STEP 3 # 
 
-Pull Request #23245 and Pull Request #2560 (and selecting the relevant repos) would pull in the diffs and those files.  
-
-But in Step 3 of the concatenation, the deveoper will go through and manually select not just the files that were worked on, but any other files and folders that would be contextually relevant  for the code review.
-
-So the developer might make 3 changes on the front end to the sign-up flow, but then select the entire api folder to send along for additional context in the analysis. 
+Select Additional Files needed for context - such as coding standards, DB schema, or any other reference material.
 
 # STEP 4 # 
 
-Select Additional Files needed for context - such as coding standards, DB schema, or any references.
+Submit - submitting all the data to the LLM for analysis and development of a highly-detailed action plan for ipmlementing the Jira tickets in a way that passes code review and accpetance criteria.  The submitted api call to the LLM includes a system prompt which instructs the LLM, along with the Jira ticket details, the concatenated file, and any additional files needed for context.
 
 # STEP 5 # 
 
-Submit Review - submitting all the data to the LLM for review generation.  The submitted api call to the LLM includes a system prompt which instructs the LLM, along with the Jira ticket details, acceptance criteria, linked epics, pull request details, diffs, changed files, the concatenated file, and any additional files needed for context.
-
-# STEP 6 # 
-
-Code review is returned to the user from the LLM.
+The detailed action plan is returned to the user, with specific instructions for each file that needs to be changed, where the files are located, and what the changes should be.
 
 # Key Objectives #
 
 Fetch Context Automatically
 Pull Jira ticket information based on the ticket number.
-Pull GitHub pull request information based on the pull request number.
 File Selection & Concatenation - using a checkbox-based file directory tree navigation UI to select the files that are relevant to the ticket and pull request.  Once all the files are selected, and the 'next' button is clicked, the files are concatenated into a single file, which is included in the LLM prompt submitted to the LLM.
 
-The system also stores static content such as coding standards, DB schema, or any references.  These optional context files are listed in Step 4, and if checked, they are included in the LLM prompt submitted to the LLM.
+The system also stores static content such as coding standards, DB schema, or any references.  These optional context files are listed in Step 3, and if checked, they are included in the LLM prompt submitted to the LLM.
 
 2. Tech Stack
 
-The project will initially be run locally on localhost, and will be deployed to AWS later.  The project will be React/Typescript based and use the Google Gemini LLM API.
+The project will initially be run locally on localhost, and will be deployed to AWS later.  The project will be React/Typescript based and use the Google Gemini Flash model according to this code snippet:
+
+==start snippet===
+from google import genai
+
+client = genai.Client(api_key="GEMINI_API_KEY")
+
+response = client.models.generate_content(model='gemini-2.0-flash-exp', contents='How does AI work?')
+print(response.text)
+==end snippet===
+ LLM API.
 
 Authentication & Authorization
 
-GitHub api authentication
 Jira api authentication
 Google Gemini LLM API authentication
 
-# Psuedo-Code for LLM Prompt Generation #
 
-=====start pseudo-prompt=====
-
-You are an expert-level code reviewer for TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
-
-ROLE AND OBJECTIVE:
-- You are tasked with providing comprehensive, actionable code reviews
-- Your analysis should focus on code quality, security, performance, and alignment with business requirements
-- You should identify potential bugs, edge cases, and areas for optimization
-- You must ensure the code aligns with the provided database schema and coding standards.
-
-// {{++insert other role and task instructions and context++}} //
-
-Here is the Jira ticket information related to this task:
-
-${jiraTicketInfo}
-
-And here is the pull request information as related to this task:
-
-${pullRequestInfo}
-
-And this is a giant concatenated file that contains all files related to the work on this pull request, included additional files for context:
-
-${concatenatedFileContents}
-
-And this is additional context you'll need to know:
-
-This is the database schema: ${dbSchema}
-
-And these are our coding and design standards: ${codingDesignStandards}
-
-With all this information, provide:
-
-REVIEW GUIDELINES:
-1. Code Quality:
-   - Identify any code smells or anti-patterns
-   - Check for proper error handling
-   - Verify proper typing and null checks
-   - Assess code organization and modularity
-   - Review naming conventions and code clarity
-
-2. Database Considerations:
-   - Verify proper use of database schema
-   - Check for potential SQL injection vulnerabilities
-   - Review query performance and optimization
-   - Ensure proper handling of relationships between tables
-
-3. Security:
-   - Check for security vulnerabilities
-   - Verify proper authentication/authorization
-   - Review data validation and sanitization
-   - Assess handling of sensitive information
-
-4. Performance:
-   - Identify potential performance bottlenecks
-   - Review API call efficiency
-   - Check for unnecessary re-renders in React components
-   - Assess memory usage and potential leaks
-
-5. Business Logic:
-   - Verify implementation matches acceptance criteria
-   - Check for proper handling of edge cases
-   - Ensure business rules are correctly implemented
-   - Verify proper error messaging for users
-
-Please provide your review in the following structure:
-
-1. SUMMARY
-Brief overview of the changes and their impact
-
-2. CRITICAL ISSUES
-Any blocking issues that must be addressed
-
-3. RECOMMENDATIONS
-Suggested improvements categorized by:
-- Security
-- Performance
-- Code Quality
-- Business Logic
-- Testing
-
-4. POSITIVE HIGHLIGHTS
-Well-implemented aspects of the code
-
-5. DETAILED BREAKDOWN
-File-by-file analysis of significant changes
-
-Remember to be thorough but constructive in your feedback, providing specific examples and suggested solutions where applicable.
-
-=====end pseudo-prompt=====
-
-// future idea: The 'review submission' button counts the number of tokens in the total prompt and allows the user to select the LLM model to submit to.  Large prompts would need Gemini, but smaller prompts could use the o1 model.
 

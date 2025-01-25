@@ -43,8 +43,7 @@ export interface FileNode {
 
 // Review context types
 export interface ReviewContext {
-  jiraTicket: JiraTicket | null;
-  githubPR: GitHubPR | null;
+  jiraTickets: JiraTicket[];
   selectedFiles: string[];
   additionalFiles: string[];
 }
