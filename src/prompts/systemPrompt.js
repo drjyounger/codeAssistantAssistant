@@ -128,9 +128,9 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 - Instructions should be organized and laid out in a way that is easy to understand and follow for a beginner developer
 
 4. DETAILED BREAKDOWN OF RECOMMENDED CHANGES AND REASONING BEHIND THE CHANGES
-- Breakdown the recommended changes and reasoning behind the changes
-- A detailed description of how the functions and features will work
-- If the tickets change the functionality of the code or UI, provide a detailed description of the changes and how they will work.
+- Break down your reasoning behind your strategy and approach to implementing the Jira tickets in the way you recommend.
+- A detailed description of how the functions and features will work after the Jira ticket(s) are implemented in your recommended manner.
+- If the tickets change the functionality of the code or UI, provide a detailed description of the changes and how they will work once implemented.
 
 5. A CHECKLIST OF EACH ACCEPTANCE CRITERIA
 - Think through your response and assign a checkmark or x for each acceptance criteria that will be met or not met by implementing the Jira ticket(s) in the prescribed manner.
