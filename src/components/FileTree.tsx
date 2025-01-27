@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Tree from 'rc-tree';
 import 'rc-tree/assets/index.css';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import type { DataNode } from 'rc-tree/lib/interface';
 import type { Key } from 'rc-tree/lib/interface';
 import { GitHubFile } from '../types';
@@ -11,37 +11,10 @@ import { isTextFile } from '../services/FileService';
 
 interface FileTreeProps {
   rootPath: string;
-  onSelect: (paths: string[]) => void;
+  onSelect: (allFiles: string[], textFiles: string[]) => void;
   changedFiles?: GitHubFile[];
   onError: (error: Error) => void;
 }
-
-const getAllFilesInDirectory = async (dirPath: string): Promise<string[]> => {
-  try {
-    const response = await fetch('/api/local/directory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ folderPath: dirPath })
-    });
-    const resData = await response.json();
-    if (!resData.success) throw new Error(resData.error);
-
-    let files: string[] = [];
-    for (const item of resData.data) {
-      if (item.isDirectory) {
-        // Always go deeper
-        const subFiles = await getAllFilesInDirectory(item.id);
-        files = files.concat(subFiles);
-      } else {
-        files.push(item.id);
-      }
-    }
-    return files;
-  } catch (err) {
-    console.error('Error scanning directory:', err);
-    return [];
-  }
-};
 
 export const FileTree: React.FC<FileTreeProps> = ({
   rootPath,
@@ -54,6 +27,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
   const [nodeMap, setNodeMap] = useState<Record<string, { isDirectory: boolean }>>({});
   const [checkedKeysState, setCheckedKeysState] = useState<Key[]>([]);
+  const [fileCount, setFileCount] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchDirectory = async () => {
@@ -105,31 +80,90 @@ export const FileTree: React.FC<FileTreeProps> = ({
     fetchDirectory();
   }, [rootPath, onError]);
 
+  const getAllFilesInDirectory = async (dirPath: string): Promise<string[]> => {
+    try {
+      // Skip node_modules directories
+      if (dirPath.includes('node_modules')) {
+        return [];
+      }
+
+      const response = await fetch('/api/local/directory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: dirPath })
+      });
+      const resData = await response.json();
+      if (!resData.success) throw new Error(resData.error);
+
+      let files: string[] = [];
+      for (const item of resData.data) {
+        if (item.isDirectory) {
+          // Skip if this is a node_modules directory
+          if (item.id.includes('node_modules')) {
+            continue;
+          }
+          const subFiles = await getAllFilesInDirectory(item.id);
+          files = files.concat(subFiles);
+          // Update count as we process each directory
+          setFileCount(prev => prev + subFiles.length);
+        } else {
+          files.push(item.id);
+          // Update count for individual files
+          setFileCount(prev => prev + 1);
+        }
+      }
+      return files;
+    } catch (err) {
+      console.error('Error scanning directory:', err);
+      return [];
+    }
+  };
+
   const onCheck = async (
     checkedKeysParam: Key[] | { checked: Key[]; halfChecked: Key[] }
   ) => {
-    const newChecked = Array.isArray(checkedKeysParam) 
-      ? checkedKeysParam 
-      : checkedKeysParam.checked;
+    let checkedKeys: Key[] = [];
+    let halfCheckedKeys: Key[] = [];
 
-    setCheckedKeysState(newChecked);
-
-    let allFiles: string[] = [];
-
-    for (const key of newChecked) {
-      const nodePath = key.toString();
-      const node = nodeMap[nodePath];
-
-      if (node?.isDirectory) {
-        const filesInDir = await getAllFilesInDirectory(nodePath);
-        allFiles = [...allFiles, ...filesInDir];
-      } else if (isTextFile(nodePath)) {
-        allFiles.push(nodePath);
-      }
+    if (Array.isArray(checkedKeysParam)) {
+      checkedKeys = checkedKeysParam;
+    } else {
+      checkedKeys = checkedKeysParam.checked;
+      halfCheckedKeys = checkedKeysParam.halfChecked || [];
     }
 
-    const uniqueFiles = Array.from(new Set(allFiles));
-    onSelect(uniqueFiles);
+    const allKeys = [...checkedKeys, ...halfCheckedKeys];
+    setCheckedKeysState(allKeys);
+
+    // Reset counter and set processing state
+    setFileCount(0);
+    setIsProcessing(true);
+
+    let allFiles: string[] = [];
+    let textFiles: string[] = [];
+
+    try {
+      for (const key of allKeys) {
+        const nodePath = key.toString();
+        const node = nodeMap[nodePath];
+
+        if (node?.isDirectory) {
+          const filesInDir = await getAllFilesInDirectory(nodePath);
+          allFiles.push(...filesInDir);
+        } else {
+          allFiles.push(nodePath);
+          setFileCount(prev => prev + 1);
+        }
+      }
+
+      // Remove duplicates and filter text files
+      const uniqueAllFiles = Array.from(new Set(allFiles));
+      const uniqueTextFiles = uniqueAllFiles.filter(path => isTextFile(path));
+
+      onSelect(uniqueAllFiles, uniqueTextFiles);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (loading) {
@@ -153,6 +187,24 @@ export const FileTree: React.FC<FileTreeProps> = ({
         autoExpandParent={true}
         checkStrictly={false}
       />
+      
+      {/* Progress Counter */}
+      {isProcessing && (
+        <Box sx={{ 
+          mt: 2, 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2,
+          bgcolor: '#f5f5f5',
+          p: 1,
+          borderRadius: 1
+        }}>
+          <CircularProgress size={20} />
+          <Typography>
+            Processing Files... Total Found: {fileCount}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

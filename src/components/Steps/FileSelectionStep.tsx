@@ -33,6 +33,12 @@ const FileSelectionStep: React.FC = () => {
   const [pr, setPR] = useState<GitHubPR | null>(null);
   const [concatenatedContent, setConcatenatedContent] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [allSelectedFiles, setAllSelectedFiles] = useState<string[]>([]);
+  const [textOnlyFiles, setTextOnlyFiles] = useState<string[]>([]);
+  const [fileStats, setFileStats] = useState<{
+    total: number;
+    textFiles: number;
+  }>({ total: 0, textFiles: 0 });
 
   const changedFiles = useMemo(() => pr?.changedFiles || [], [pr]);
 
@@ -74,13 +80,20 @@ const FileSelectionStep: React.FC = () => {
     }
   };
 
-  const handleFileSelect = (files: string[]) => {
-    console.log('Selected files:', files);
-    setSelectedFiles(files);
+  const handleFileSelect = (allFiles: string[], textFiles: string[]) => {
+    setAllSelectedFiles(allFiles);
+    setTextOnlyFiles(textFiles);
+    setSelectedFiles(textFiles);
+    
+    // Update file statistics
+    setFileStats({
+      total: allFiles.length,
+      textFiles: textFiles.length
+    });
   };
 
   const handleConcatenate = async () => {
-    if (selectedFiles.length === 0) {
+    if (allSelectedFiles.length === 0) {
       setError('Please select at least one file');
       return;
     }
@@ -90,7 +103,6 @@ const FileSelectionStep: React.FC = () => {
     setShowSuccess(false);
 
     try {
-      // Function to get file content
       const getFileContent = async (filePath: string): Promise<string> => {
         const response = await fetch('/api/local/file', {
           method: 'POST',
@@ -103,14 +115,13 @@ const FileSelectionStep: React.FC = () => {
         return data.content;
       };
 
-      const finalContent = await formatConcatenatedFiles(selectedFiles, getFileContent);
+      // Use textOnlyFiles for concatenation
+      const finalContent = await formatConcatenatedFiles(textOnlyFiles, getFileContent);
       setConcatenatedContent(finalContent);
       setShowSuccess(true);
       
-      // Store in localStorage for next step
       localStorage.setItem('concatenatedFiles', finalContent);
 
-      // Scroll to the concatenated content
       setTimeout(() => {
         document.getElementById('concatenated-content')?.scrollIntoView({ 
           behavior: 'smooth' 
@@ -170,14 +181,34 @@ const FileSelectionStep: React.FC = () => {
       </Box>
 
       {showTree && !error && (
-        <Box sx={{ mb: 3, height: '400px', overflow: 'auto' }}>
-          <FileTree
-            rootPath={rootPath}
-            onSelect={handleFileSelect}
-            changedFiles={changedFiles}
-            onError={(error: Error) => setError(error.message)}
-          />
-        </Box>
+        <>
+          <Box sx={{ mb: 3, height: '400px', overflow: 'auto' }}>
+            <FileTree
+              rootPath={rootPath}
+              onSelect={handleFileSelect}
+              changedFiles={changedFiles}
+              onError={(error: Error) => setError(error.message)}
+            />
+          </Box>
+          
+          {/* File Statistics */}
+          {fileStats.total > 0 && (
+            <Box sx={{ 
+              mb: 2, 
+              p: 2, 
+              bgcolor: '#f5f5f5', 
+              borderRadius: 1,
+              border: '1px solid #e0e0e0'
+            }}>
+              <Typography>
+                Total Files Selected: {fileStats.total}
+              </Typography>
+              <Typography>
+                Text Files (will be concatenated): {fileStats.textFiles}
+              </Typography>
+            </Box>
+          )}
+        </>
       )}
 
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -191,7 +222,7 @@ const FileSelectionStep: React.FC = () => {
         <Button
           variant="contained"
           onClick={handleConcatenate}
-          disabled={loading || selectedFiles.length === 0}
+          disabled={loading || allSelectedFiles.length === 0}
         >
           {loading ? <CircularProgress size={20} /> : 'Concatenate Files'}
         </Button>

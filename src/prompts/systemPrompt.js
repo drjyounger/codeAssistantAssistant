@@ -132,6 +132,13 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 - A detailed description of how the functions and features will work
 - If the tickets change the functionality of the code or UI, provide a detailed description of the changes and how they will work.
 
+5. A CHECKLIST OF EACH ACCEPTANCE CRITERIA
+- Think through your response and assign a checkmark or x for each acceptance criteria that will be met or not met by implementing the Jira ticket(s) in the prescribed manner.
+- Use this format: ✅ or ❌
+- If you are not sure, assign a ❌
+- If you assign a ❌, provide a detailed explanation of why it will not be met and re-think your approach to implementing the Jira ticket(s) in a way that will meet the acceptance criteria.
+- Ideally, you will assign a ✅ to each acceptance criteria because you have thought through the implementation and it will meet the acceptance criteria.
+
 You may be working with a beginner coder, or a developer new to the team.  
 So remember to be always thorough, highly-detailed and actionable in your response.  
 Reference specific files and lines of code and providing specific examples and suggested solutions where applicable.  
