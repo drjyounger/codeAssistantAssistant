@@ -49,14 +49,14 @@ The system also stores static content such as coding standards, DB schema, or an
 
 2. Tech Stack
 
-The project will initially be run locally on localhost, and will be deployed to AWS later.  The project will be React/Typescript based and use the Google Gemini Flash model according to this code snippet:
+The project will initially be run locally on localhost, and will be deployed to AWS later.  The project will be React/Typescript based and use the Google Gemini model according to this code snippet:
 
 ==start snippet===
 from google import genai
 
 client = genai.Client(api_key="GEMINI_API_KEY")
 
-response = client.models.generate_content(model='gemini-2.0-flash-exp', contents='How does AI work?')
+response = client.models.generate_content(model='gemini-2.0-pro-exp-02-05', contents='How does AI work?')
 print(response.text)
 ==end snippet===
  LLM API.
