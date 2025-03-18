@@ -4,7 +4,6 @@ import { Box, Container, CssBaseline } from '@mui/material';
 
 // Import steps (we'll create these next)
 import JiraTicketStep from './components/Steps/JiraTicketStep';
-import GitHubPRStep from './components/Steps/GitHubPRStep';
 import FileSelectionStep from './components/Steps/FileSelectionStep';
 import AdditionalFilesStep from './components/Steps/AdditionalFilesStep';
 import ReviewSubmissionStep from './components/Steps/ReviewSubmissionStep';
@@ -15,7 +14,6 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<Navigate to="/jira-ticket" />} />
       <Route path="/jira-ticket" element={<JiraTicketStep />} />
-      <Route path="/github-pr" element={<GitHubPRStep />} />
       <Route path="/file-selection" element={<FileSelectionStep />} />
       <Route path="/additional-files" element={<AdditionalFilesStep />} />
       <Route path="/submit-review" element={<ReviewSubmissionStep />} />

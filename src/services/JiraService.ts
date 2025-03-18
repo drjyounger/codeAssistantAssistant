@@ -11,9 +11,10 @@ export const getTicketDetails = async (ticketNumber: string): Promise<ApiRespons
     // Enhanced ticket with more fields if needed
     const ticket: JiraTicket = {
       key: data.key,
-      summary: data.fields.summary,
-      description: data.fields.description || '',
-      // Add any other fields you need from the Jira response
+      fields: {
+        summary: data.fields.summary,
+        description: data.fields.description || '',
+      }
     };
 
     return {

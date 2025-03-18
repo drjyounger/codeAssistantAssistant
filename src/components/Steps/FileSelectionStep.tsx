@@ -1,6 +1,6 @@
 // src/components/Steps/FileSelectionStep.tsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -13,13 +13,11 @@ import {
 } from '@mui/material';
 
 import { FileTree } from '../FileTree';
-import { GitHubPR, GitHubFile } from '../../types';
 import { formatConcatenatedFiles } from '../../utils';
 
 interface FileTreeProps {
   rootPath: string;
   onSelect: (files: string[]) => void;
-  changedFiles: GitHubFile[];
   onError: (error: Error) => void;
 }
 
@@ -30,7 +28,6 @@ const FileSelectionStep: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pr, setPR] = useState<GitHubPR | null>(null);
   const [concatenatedContent, setConcatenatedContent] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [allSelectedFiles, setAllSelectedFiles] = useState<string[]>([]);
@@ -39,20 +36,6 @@ const FileSelectionStep: React.FC = () => {
     total: number;
     textFiles: number;
   }>({ total: 0, textFiles: 0 });
-
-  const changedFiles = useMemo(() => pr?.changedFiles || [], [pr]);
-
-  useEffect(() => {
-    // Load PR data from localStorage
-    try {
-      const prData = localStorage.getItem('githubPRs');
-      if (prData) {
-        setPR(JSON.parse(prData));
-      }
-    } catch (err) {
-      console.error('Error loading PR data:', err);
-    }
-  }, []);
 
   const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRootPath(e.target.value);
@@ -145,7 +128,7 @@ const FileSelectionStep: React.FC = () => {
   return (
     <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h5" component="h1" gutterBottom>
-        Step 3: Select Files for Review
+        Step 2: Select Files for Review
       </Typography>
 
       {error && (
@@ -186,7 +169,6 @@ const FileSelectionStep: React.FC = () => {
             <FileTree
               rootPath={rootPath}
               onSelect={handleFileSelect}
-              changedFiles={changedFiles}
               onError={(error: Error) => setError(error.message)}
             />
           </Box>
@@ -214,7 +196,7 @@ const FileSelectionStep: React.FC = () => {
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
-          onClick={() => navigate('/github-pr')}
+          onClick={() => navigate('/jira-ticket')}
           disabled={loading}
         >
           Back

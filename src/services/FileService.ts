@@ -102,8 +102,9 @@ export const getDirectoryTree = async (rootPath: string): Promise<FileNode> => {
       }
 
       const node: FileNode = {
-        path: entry.path,
-        type: entry.type,
+        title: entry.path,
+        key: entry.path,
+        isLeaf: entry.type === 'file',
         children: [],
       };
 

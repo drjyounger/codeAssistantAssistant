@@ -8,7 +8,6 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { generateCodeReview } from '../../services/LLMService';
 import { generateSystemPrompt } from '../../prompts/systemPrompt';
 import { REFERENCE_FILES } from '../../references/referenceManifest';
 import { JiraTicket } from '../../types';
@@ -50,20 +49,36 @@ const ReviewSubmissionStep: React.FC = () => {
       console.log('[DEBUG] Final references being submitted:', validReferenceFiles);
 
       console.log('[client] [Step5:ReviewSubmission] Sending data to LLM...');
-      const review = await generateCodeReview({
-        jiraTickets,
-        concatenatedFiles,
-        referenceFiles: validReferenceFiles
+      
+      const response = await fetch('/api/generate-review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jiraTickets,
+          concatenatedFiles,
+          referenceFiles: validReferenceFiles
+        })
       });
 
-      if (review.success) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate review');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
         console.log('[client] [Step5:ReviewSubmission] Successfully received code review. Storing and navigating to results...');
         localStorage.setItem('reviewResult', JSON.stringify({
-          review: review.data,
+          review: result.review,
           suggestions: [],
           score: 0
         }));
         navigate('/review-result');
+      } else {
+        throw new Error(result.error || 'Failed to generate review');
       }
     } catch (err) {
       console.error('[client] [Step5:ReviewSubmission] Error:', err);

@@ -6,21 +6,18 @@ import 'rc-tree/assets/index.css';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import type { DataNode } from 'rc-tree/lib/interface';
 import type { Key } from 'rc-tree/lib/interface';
-import { GitHubFile } from '../types';
 import { isTextFile } from '../services/FileService';
 
 interface FileTreeProps {
   rootPath: string;
   onSelect: (allFiles: string[], textFiles: string[]) => void;
-  changedFiles?: GitHubFile[];
   onError: (error: Error) => void;
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({
   rootPath,
   onSelect,
-  changedFiles = [],
-  onError
+  onError,
 }) => {
   const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loading, setLoading] = useState(false);
