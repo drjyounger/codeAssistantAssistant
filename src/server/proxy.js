@@ -195,6 +195,46 @@ app.post('/api/generate-review', async (req, res) => {
   }
 });
 
+app.post('/api/save-markdown', async (req, res) => {
+  try {
+    const { content, fileName, emptyFileName } = req.body;
+    
+    if (!content || !fileName) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing content or fileName' 
+      });
+    }
+    
+    // Save to parent directory (2 levels up from current directory)
+    const targetDir = path.join(__dirname, '..', '..', '..', '..');
+    const filePath = path.join(targetDir, fileName);
+    
+    console.log(`[DEBUG] Saving markdown file to: ${filePath}`);
+    
+    // Create the file
+    await fs.writeFile(filePath, content, 'utf8');
+    
+    // If an empty file name is provided, create that file too
+    if (emptyFileName) {
+      const emptyFilePath = path.join(targetDir, emptyFileName);
+      console.log(`[DEBUG] Creating empty markdown file at: ${emptyFilePath}`);
+      await fs.writeFile(emptyFilePath, '', 'utf8');
+    }
+    
+    res.json({
+      success: true,
+      filePath: filePath
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error saving markdown file:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: `Failed to save markdown file: ${error.message}` 
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);

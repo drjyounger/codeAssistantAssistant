@@ -10,8 +10,14 @@ import {
   AccordionSummary,
   AccordionDetails,
   Divider,
+  IconButton,
+  Tooltip,
+  Snackbar,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DownloadIcon from '@mui/icons-material/Download';
+import { JiraTicket } from '../../types';
 
 interface ReviewResult {
   review: string;
@@ -32,6 +38,9 @@ const Step6ReviewResults: React.FC = () => {
   const navigate = useNavigate();
   const [reviewData, setReviewData] = useState<ReviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('Review copied to clipboard');
+  const [jiraTickets, setJiraTickets] = useState<JiraTicket[]>([]);
 
   useEffect(() => {
     try {
@@ -40,6 +49,11 @@ const Step6ReviewResults: React.FC = () => {
         throw new Error('No review data found');
       }
       setReviewData(JSON.parse(storedReview));
+      
+      const storedTickets = localStorage.getItem('jiraTickets');
+      if (storedTickets) {
+        setJiraTickets(JSON.parse(storedTickets));
+      }
     } catch (err) {
       setError('Failed to load review results');
       console.error(err);
@@ -88,6 +102,98 @@ const Step6ReviewResults: React.FC = () => {
 
   const sections: Sections = reviewData ? parseSections(reviewData.review) : defaultSections;
 
+  const handleCopyToClipboard = () => {
+    if (reviewData?.review) {
+      navigator.clipboard.writeText(reviewData.review)
+        .then(() => {
+          setSnackbarMessage('Review copied to clipboard');
+          setSnackbarOpen(true);
+        })
+        .catch(err => {
+          console.error('Failed to copy text:', err);
+        });
+    }
+  };
+
+  const generateFileName = () => {
+    if (jiraTickets.length === 0) {
+      return `OverviewPlan-Unknown-${new Date().toISOString().split('T')[0]}.md`;
+    } else if (jiraTickets.length === 1) {
+      return `OverviewPlan-${jiraTickets[0].key}.md`;
+    } else {
+      return `OverviewPlan-${jiraTickets[0].key}-Plus${jiraTickets.length - 1}.md`;
+    }
+  };
+
+  const generateDetailedFileName = () => {
+    if (jiraTickets.length === 0) {
+      return `DetailedPlan-Unknown-${new Date().toISOString().split('T')[0]}.md`;
+    } else if (jiraTickets.length === 1) {
+      return `DetailedPlan-${jiraTickets[0].key}.md`;
+    } else {
+      return `DetailedPlan-${jiraTickets[0].key}-Plus${jiraTickets.length - 1}.md`;
+    }
+  };
+
+  const handleDownload = async () => {
+    if (reviewData?.review) {
+      try {
+        const fileName = generateFileName();
+        const emptyFileName = generateDetailedFileName();
+        
+        // Call server endpoint to save file to specific directory
+        const response = await fetch('/api/save-markdown', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            content: reviewData.review,
+            fileName: fileName,
+            emptyFileName: emptyFileName
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to save file');
+        }
+        
+        setSnackbarMessage(`Saved as ${fileName} and created empty ${emptyFileName} in TempStarsApp2 directory`);
+        setSnackbarOpen(true);
+        
+        // Also offer browser download as fallback
+        const blob = new Blob([reviewData.review], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+      } catch (err) {
+        console.error('Error saving file:', err);
+        setSnackbarMessage('Error saving files to specified directory. Downloaded to browser instead.');
+        
+        // Fallback to browser download
+        const blob = new Blob([reviewData.review], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = generateFileName();
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        setSnackbarOpen(true);
+      }
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
+
   if (error) {
     return (
       <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
@@ -103,9 +209,31 @@ const Step6ReviewResults: React.FC = () => {
 
   return (
     <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
-      <Typography variant="h5" component="h1" gutterBottom>
-        Code Review Results
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h5" component="h1">
+          Code Review Results
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Copy entire review to clipboard">
+            <IconButton 
+              onClick={handleCopyToClipboard} 
+              disabled={!reviewData?.review}
+              color="primary"
+            >
+              <ContentCopyIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Save Overview & create empty Detailed Plan files">
+            <IconButton 
+              onClick={handleDownload} 
+              disabled={!reviewData?.review}
+              color="primary"
+            >
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
 
       {sections && (
         <Box sx={{ mt: 3 }}>
@@ -183,6 +311,13 @@ const Step6ReviewResults: React.FC = () => {
           Start New Review
         </Button>
       </Box>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        message={snackbarMessage}
+      />
     </Paper>
   );
 };

@@ -63,6 +63,12 @@ Below you will find:
 2. A concatenation of relevant code files for context
 3. Additional reference materials (coding standards, schema, etc.)
 
+Take your time and analyze the information carefully.  The TempStars codebase is large with some legacy components.  
+
+Ensure you fully grasp the context of the entire codebase and that your implementation guide does not break related components.
+
+For clarity, each section is labelled with a comment header that starts with '=====START' and ends with '=====END'.
+
 Here is the information to analyze, starting with the Jira ticket details:
 
 =====START JIRA TICKET(S)=====
@@ -71,11 +77,11 @@ ${formattedTickets}
 
 =====END JIRA TICKET(S)=====
 
-This is the long file with multiple concatenated files that are related to the scope of the Jira ticket(s).  
+Below is the long file with multiple concatenated files of the TempStars codebase that are related to the scope of the Jira ticket(s).  
 You'll see a "Table of Contents" followed by the concatenated files.  Each file in the concatenation is labelled with its file name and path.
 
 Note: The TempStars repo is split into 'tempstars-api' and 'tempstars-app' repos.  So you will see files and directories with paths that start with 'tempstars-api' (backend) or 'tempstars-app' (frontend).  
-During build of the actual project, both repos are used:
+During build of the actual project, both repos are used.  Here is the concatenated files:
 
 =====START CONCATENATED FILES=====
 
@@ -119,13 +125,14 @@ Please provide your guidance and instructions in the following structure:
 An overview of the the Jira ticket(s) along with the scope and purpose of the work.
 
 2. AFFECTED FILES
-- Identify all files that will be touched when working on the Jira ticket(s), including the full paths
+- Identify all files that will be touched or referenced when working on the Jira ticket(s), including the full paths
 - Identify new files that need to be created and their full path
 
 3. A HIGHLY DETAILED INSTRUCTION GUIDE FOR IMPLEMENTING THE JIRA TICKET(S)
 - Instructions should be clear and highly-detailed
 - Instructions should be actionable and specific
 - Instructions should be organized and laid out in a way that is easy to understand and follow for a beginner developer
+- Instructions should be organized and ordered in a prioritized step-by-step manner "first do this, then do that, etc." that is easy to understand and follow
 
 4. DETAILED BREAKDOWN OF RECOMMENDED CHANGES AND REASONING BEHIND THE CHANGES
 - Break down your reasoning behind your strategy and approach to implementing the Jira tickets in the way you recommend.
@@ -139,7 +146,7 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 - If you assign a ❌, provide a detailed explanation of why it will not be met and re-think your approach to implementing the Jira ticket(s) in a way that will meet the acceptance criteria.
 - Ideally, you will assign a ✅ to each acceptance criteria because you have thought through the implementation and it will meet the acceptance criteria.
 
-You may be working with a beginner coder, or a developer new to the team.  
+You may be working with a beginner coder, or a developer new to the TempStars team.  
 So remember to be always thorough, highly-detailed and actionable in your response.  
 Reference specific files and lines of code and providing specific examples and suggested solutions where applicable.  
 When apprpriate, add some broader explanations to help educate the developer about the TempStars codebase and project.`;

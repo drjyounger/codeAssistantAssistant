@@ -1,7 +1,7 @@
 const { generateSystemPrompt } = require('../prompts/systemPrompt');
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-pro-exp-02-05:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent";
 
 const GEMINI_CONFIG = {
   temperature: 0.7,
@@ -65,6 +65,10 @@ const makeRequest = async (promptString, retryCount = 0) => {
 const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [] }) => {
   const startTime = Date.now();
   try {
+    // Extract model name from the API URL
+    const modelNameMatch = GEMINI_API_URL.match(/models\/([^:]+)/);
+    const modelName = modelNameMatch ? modelNameMatch[1] : 'unknown-model';
+    
     console.log('\n🔍 Starting Code Review Generation');
     console.log('=====================================');
     console.log('📋 Input Summary:');
@@ -127,7 +131,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     for (let attempt = 0; attempt < 3 && !success; attempt++) {
       try {
         console.log(`📡 Sending request to Gemini API (attempt ${attempt + 1}/3)...`);
-        console.log(`- Model: gemini-2.0-pro-exp-02-05`);
+        console.log(`- Model: ${modelName}`);
         console.log(`- Temperature: ${attempt > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * attempt)) : GEMINI_CONFIG.temperature}`);
         console.log(`- Timestamp: ${new Date().toISOString()}`);
         
