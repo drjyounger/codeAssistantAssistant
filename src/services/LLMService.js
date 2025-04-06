@@ -1,4 +1,7 @@
 const { generateSystemPrompt } = require('../prompts/systemPrompt');
+const fetch = require('node-fetch');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent";
@@ -30,36 +33,63 @@ const validateResponse = (text) => {
 };
 
 const makeRequest = async (promptString, retryCount = 0) => {
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  try {
+    // Check if API key is present
+    if (!GEMINI_API_KEY) {
+      console.error('[DEBUG] API key is missing. Check your .env file and ensure REACT_APP_GEMINI_API_KEY is set.');
+      throw new Error('Gemini API key is missing');
+    }
+
+    console.log(`[DEBUG] Request URL: ${GEMINI_API_URL}?key=xxxxx... (key length: ${GEMINI_API_KEY ? GEMINI_API_KEY.length : 0})`);
+    console.log(`[DEBUG] Request body:`, JSON.stringify({
       contents: [{
         parts: [{
-          text: promptString
+          text: promptString.substring(0, 200) + '...[truncated]'
         }]
       }],
       generationConfig: {
         ...GEMINI_CONFIG,
-        // On retry, reduce temperature for more focused output
         temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
       }
-    })
-  });
+    }, null, 2));
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.statusText}`);
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: promptString
+          }]
+        }],
+        generationConfig: {
+          ...GEMINI_CONFIG,
+          // On retry, reduce temperature for more focused output
+          temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`[DEBUG] API Error Response (${response.status}):`, errorData);
+      throw new Error(`Gemini API error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      console.error('[DEBUG] Unexpected response format:', JSON.stringify(result, null, 2));
+      throw new Error('Unexpected response format from Gemini API');
+    }
+
+    return result.candidates[0].content.parts[0].text;
+  } catch (error) {
+    console.error('[DEBUG] Request failed:', error.message);
+    throw error;
   }
-
-  const result = await response.json();
-  
-  if (!result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-    throw new Error('Unexpected response format from Gemini API');
-  }
-
-  return result.candidates[0].content.parts[0].text;
 };
 
 const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [] }) => {
