@@ -25,4 +25,22 @@ export interface JiraTicket {
 
 export interface JiraTicketDetails {
   tickets: JiraTicket[];
+}
+
+// Design image types
+export interface DesignImage {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+  preview?: string;
+}
+
+// System prompt types
+export interface SystemPromptParams {
+  jiraTickets: JiraTicket[];
+  concatenatedFiles: string;
+  referenceFiles: any[];
+  designImages?: DesignImage[];
 } 

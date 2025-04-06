@@ -1,9 +1,19 @@
-const generateSystemPrompt = ({
+import { JiraTicket, DesignImage, SystemPromptParams } from '../types';
+
+interface ReferenceFile {
+  name: string;
+  type: string;
+  content: string;
+}
+
+export const generateSystemPrompt = ({
   jiraTickets,
   concatenatedFiles,
-  referenceFiles
-}) => {
+  referenceFiles,
+  designImages = []
+}: SystemPromptParams): string => {
   console.log('[DEBUG] generateSystemPrompt received referenceFiles:', referenceFiles);
+  console.log('[DEBUG] generateSystemPrompt received designImages:', designImages);
   
   // Format multiple tickets
   const formattedTickets = Array.isArray(jiraTickets) 
@@ -14,7 +24,7 @@ const generateSystemPrompt = ({
   console.log('[DEBUG] Processing reference files...');
   const formattedReferenceFiles = Array.isArray(referenceFiles) && referenceFiles.length > 0
     ? referenceFiles
-        .map(file => {
+        .map((file: ReferenceFile) => {
           console.log(`[DEBUG] Formatting reference file: ${file.name}`, {
             contentLength: file.content.length,
             type: file.type
@@ -48,6 +58,14 @@ ${formattedContent}
         .join('\n\n')
     : 'No additional reference files selected.';
 
+  // Format design images information
+  console.log('[DEBUG] Processing design images...');
+  const formattedDesignImages = Array.isArray(designImages) && designImages.length > 0
+    ? designImages
+        .map((image: DesignImage, index: number) => `Image ${index + 1}: ${image.name} (${image.type})`)
+        .join('\n')
+    : 'No design screenshots provided.';
+
   console.log('[DEBUG] Formatted reference files:', {
     length: formattedReferenceFiles.length,
     isEmpty: formattedReferenceFiles === 'No additional reference files selected.',
@@ -62,6 +80,7 @@ Below you will find:
 1. Jira ticket details
 2. A concatenation of relevant code files for context
 3. Additional reference materials (coding standards, schema, etc.)
+4. Design screenshots for visual implementation guidance
 
 Take your time and analyze the information carefully.  The TempStars codebase is large with some legacy components.  
 
@@ -95,7 +114,15 @@ Below you'll find some additional references that will help you understand the s
 
 ${formattedReferenceFiles}
 
-=====END ADDITIONAL CONTEXT FILES=====;
+=====END ADDITIONAL CONTEXT FILES=====
+
+=====START DESIGN SCREENSHOTS=====
+
+${formattedDesignImages}
+
+Note: The actual design screenshots are included in this message as image attachments. Reference them when providing UI implementation instructions.
+
+=====END DESIGN SCREENSHOTS=====
 
 REVIEW GUIDELINES:
 1. Code Quality:
@@ -119,6 +146,12 @@ REVIEW GUIDELINES:
    - Consider the context of the business and the business rules and requirements
    - Consider the impact of the changes on the business rules and requirements
 
+6. Visual Design Implementation:
+   - Refer to the provided design screenshots to ensure accurate implementation
+   - Pay close attention to UI elements, layouts, and visual details shown in the designs
+   - Provide specific instructions on implementing the UI components shown in the screenshots
+   - When relevant, include CSS styling details that match the design screenshots
+
 Please provide your guidance and instructions in the following structure:
 
 1. SUMMARY
@@ -133,6 +166,8 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 - Instructions should be actionable and specific
 - Instructions should be organized and laid out in a way that is easy to understand and follow for a beginner developer
 - Instructions should be organized and ordered in a prioritized step-by-step manner "first do this, then do that, etc." that is easy to understand and follow
+- If design screenshots are provided, reference them specifically when describing UI implementation
+- Include notes on how to implement specific visual elements seen in the designs
 
 4. DETAILED BREAKDOWN OF RECOMMENDED CHANGES AND REASONING BEHIND THE CHANGES
 - Break down your reasoning behind your strategy and approach to implementing the Jira tickets in the way you recommend.
@@ -152,4 +187,6 @@ Reference specific files and lines of code and providing specific examples and s
 When apprpriate, add some broader explanations to help educate the developer about the TempStars codebase and project.`;
 };
 
+// Add CommonJS module.exports for compatibility with require()
+// This helps with the transition from JavaScript to TypeScript
 module.exports = { generateSystemPrompt }; 

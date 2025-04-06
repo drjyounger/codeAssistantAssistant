@@ -1,10 +1,14 @@
-const { generateSystemPrompt } = require('../prompts/systemPrompt');
+const { generateSystemPrompt } = require('../prompts/systemPrompt.ts');
 const fetch = require('node-fetch');
 const path = require('path');
+const fs = require('fs').promises;
+const axios = require('axios');
+const FormData = require('form-data');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent";
+const GEMINI_FILE_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files";
 
 const GEMINI_CONFIG = {
   temperature: 0.7,
@@ -15,6 +19,53 @@ const GEMINI_CONFIG = {
 
 // Maximum prompt size (in tokens) to allow some headroom in the 2M context window
 const MAX_PROMPT_TOKENS = 1800000;
+
+// Helper function to upload file to Gemini
+const uploadFileToGemini = async (filePath) => {
+  try {
+    const fileContent = await fs.readFile(filePath);
+    const formData = new FormData();
+    
+    // Get file information
+    const fileName = path.basename(filePath);
+    const ext = path.extname(fileName).toLowerCase();
+    
+    // Determine MIME type based on extension
+    let mimeType;
+    if (ext === '.jpg' || ext === '.jpeg') {
+      mimeType = 'image/jpeg';
+    } else if (ext === '.png') {
+      mimeType = 'image/png';
+    } else if (ext === '.gif') {
+      mimeType = 'image/gif';
+    } else if (ext === '.webp') {
+      mimeType = 'image/webp';
+    } else {
+      mimeType = 'application/octet-stream';
+    }
+    
+    // Add file to form data
+    formData.append('file', fileContent, {
+      filename: fileName,
+      contentType: mimeType
+    });
+    
+    // Upload to Gemini
+    const response = await axios.post(
+      `${GEMINI_FILE_UPLOAD_URL}?key=${GEMINI_API_KEY}`,
+      formData,
+      {
+        headers: formData.getHeaders(),
+      }
+    );
+    
+    // Return file metadata from response
+    return response.data.file;
+  } catch (error) {
+    console.error('Error uploading file to Gemini:', error);
+    throw error;
+  }
+};
 
 const validateResponse = (text) => {
   const sections = {
@@ -32,7 +83,7 @@ const validateResponse = (text) => {
   return !Object.values(sections).some(present => !present);
 };
 
-const makeRequest = async (promptString, retryCount = 0) => {
+const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
   try {
     // Check if API key is present
     if (!GEMINI_API_KEY) {
@@ -41,24 +92,45 @@ const makeRequest = async (promptString, retryCount = 0) => {
     }
 
     console.log(`[DEBUG] Request URL: ${GEMINI_API_URL}?key=xxxxx... (key length: ${GEMINI_API_KEY ? GEMINI_API_KEY.length : 0})`);
-    console.log(`[DEBUG] Request body:`, JSON.stringify({
-      contents: [{
+    
+    let requestBody;
+    
+    // If we have image files, construct a multimodal request
+    if (imageFiles && imageFiles.length > 0) {
+      console.log(`[DEBUG] Preparing multimodal request with ${imageFiles.length} images`);
+      
+      // Create the contents array with text and image files
+      const contents = [];
+      
+      // Add the system prompt as text
+      contents.push({
         parts: [{
-          text: promptString.substring(0, 200) + '...[truncated]'
+          text: promptString
         }]
-      }],
-      generationConfig: {
-        ...GEMINI_CONFIG,
-        temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
+      });
+      
+      // Add each image file as a separate part
+      for (const imageFile of imageFiles) {
+        contents.push({
+          parts: [{
+            file_data: {
+              file_uri: imageFile.uri,
+              mime_type: imageFile.mimeType
+            }
+          }]
+        });
       }
-    }, null, 2));
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+      
+      requestBody = {
+        contents,
+        generationConfig: {
+          ...GEMINI_CONFIG,
+          temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
+        }
+      };
+    } else {
+      // Standard text-only request
+      requestBody = {
         contents: [{
           parts: [{
             text: promptString
@@ -66,10 +138,31 @@ const makeRequest = async (promptString, retryCount = 0) => {
         }],
         generationConfig: {
           ...GEMINI_CONFIG,
-          // On retry, reduce temperature for more focused output
           temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
         }
-      })
+      };
+    }
+    
+    console.log(`[DEBUG] Request body structure:`, JSON.stringify({
+      ...requestBody,
+      contents: requestBody.contents.map(content => ({
+        parts: content.parts.map(part => {
+          if (part.text) {
+            return { text: part.text.substring(0, 200) + '...[truncated]' };
+          } else if (part.file_data) {
+            return { file_data: { file_uri: part.file_data.file_uri, mime_type: part.file_data.mime_type } };
+          }
+          return part;
+        })
+      }))
+    }, null, 2));
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
@@ -92,7 +185,7 @@ const makeRequest = async (promptString, retryCount = 0) => {
   }
 };
 
-const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [] }) => {
+const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [], uploadedImages = [] }) => {
   const startTime = Date.now();
   try {
     // Extract model name from the API URL
@@ -118,17 +211,60 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
       console.warn('Warning: referenceFiles is not an array, converting to array');
       referenceFiles = referenceFiles ? [referenceFiles] : [];
     }
+    
+    if (!Array.isArray(uploadedImages)) {
+      console.warn('Warning: uploadedImages is not an array, converting to array');
+      uploadedImages = uploadedImages ? [uploadedImages] : [];
+    }
 
     console.log(`- Number of Jira tickets: ${jiraTickets.length}`);
     console.log(`- Concatenated files size: ${concatenatedFiles.length} characters`);
     console.log(`- Reference files included: ${referenceFiles.length}`);
+    console.log(`- Image files included: ${uploadedImages.length}`);
     console.log('-------------------------------------');
+
+    // Upload image files to Gemini if needed
+    let geminiImageFiles = [];
+    if (uploadedImages.length > 0) {
+      console.log(`🖼️ Uploading ${uploadedImages.length} image files to Gemini API...`);
+      
+      // Get the uploads directory path
+      const uploadsDir = path.join(__dirname, '../../temp-uploads');
+      
+      try {
+        for (const image of uploadedImages) {
+          // Find the file in the uploads directory
+          const files = await fs.readdir(uploadsDir);
+          const imageFile = files.find(file => file.startsWith(image.id));
+          
+          if (imageFile) {
+            const filePath = path.join(uploadsDir, imageFile);
+            console.log(`- Uploading image: ${image.name} (${filePath})`);
+            
+            // Upload file to Gemini
+            const geminiFile = await uploadFileToGemini(filePath);
+            console.log(`  ✅ Uploaded to Gemini: ${geminiFile.name}`);
+            
+            // Save the file data
+            geminiImageFiles.push(geminiFile);
+          } else {
+            console.warn(`⚠️ Image file not found for ID: ${image.id}`);
+          }
+        }
+        
+        console.log(`✅ Successfully uploaded ${geminiImageFiles.length} of ${uploadedImages.length} images to Gemini API`);
+      } catch (error) {
+        console.error('❌ Error uploading images to Gemini:', error);
+        throw new Error(`Failed to upload images to Gemini: ${error.message}`);
+      }
+    }
 
     console.log('🚀 Preparing LLM API call...');
     let promptString = generateSystemPrompt({
       jiraTickets,
       concatenatedFiles,
       referenceFiles,
+      designImages: uploadedImages
     });
 
     // Add explicit section requirements
@@ -146,6 +282,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     console.log(`📝 Generated prompt details:`);
     console.log(`- Total length: ${promptString.length} characters`);
     console.log(`- Estimated tokens: ~${estimatedTokens}`);
+    console.log(`- Images: ${geminiImageFiles.length}`);
 
     if (estimatedTokens > MAX_PROMPT_TOKENS) {
       throw new Error(`Prompt too large (${estimatedTokens} tokens). Maximum allowed is ${MAX_PROMPT_TOKENS} tokens.`);
@@ -163,9 +300,10 @@ Each section is required and must maintain this exact naming. Do not skip any se
         console.log(`📡 Sending request to Gemini API (attempt ${attempt + 1}/3)...`);
         console.log(`- Model: ${modelName}`);
         console.log(`- Temperature: ${attempt > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * attempt)) : GEMINI_CONFIG.temperature}`);
+        console.log(`- Images: ${geminiImageFiles.length}`);
         console.log(`- Timestamp: ${new Date().toISOString()}`);
         
-        generatedText = await makeRequest(promptString, attempt);
+        generatedText = await makeRequest(promptString, geminiImageFiles, attempt);
         
         console.log('-------------------------------------');
         console.log('📊 Generation Results:');
@@ -189,6 +327,12 @@ Each section is required and must maintain this exact naming. Do not skip any se
           console.log('🔄 Retrying...\n');
         }
       }
+    }
+
+    // Clean up Gemini image files
+    if (geminiImageFiles.length > 0) {
+      console.log('🧹 Cleaning up Gemini image files...');
+      // Note: In a production environment, add code here to delete the files from Gemini API
     }
 
     if (!success) {

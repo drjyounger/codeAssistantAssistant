@@ -8,14 +8,17 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  Alert
+  Alert,
+  Divider
 } from '@mui/material';
 import { REFERENCE_FILES, ReferenceFile } from '../../references/referenceManifest';
 import { readReferenceFile } from '../../services/LocalFileService';
+import ImageUploadComponent, { UploadedImage } from '../ImageUploadComponent';
 
 const AdditionalFilesStep: React.FC = () => {
   const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +26,16 @@ const AdditionalFilesStep: React.FC = () => {
     const concatenatedFiles = localStorage.getItem('concatenatedFiles');
     if (!concatenatedFiles) {
       navigate('/file-selection');
+    }
+    
+    // Restore any previously uploaded images from localStorage
+    const savedImages = localStorage.getItem('uploadedImages');
+    if (savedImages) {
+      try {
+        setUploadedImages(JSON.parse(savedImages));
+      } catch (err) {
+        console.error('Failed to parse saved images:', err);
+      }
     }
   }, [navigate]);
 
@@ -34,6 +47,10 @@ const AdditionalFilesStep: React.FC = () => {
       newSelected.add(fileId);
     }
     setSelectedFiles(newSelected);
+  };
+
+  const handleImagesChange = (images: UploadedImage[]) => {
+    setUploadedImages(images);
   };
 
   const handleNext = async () => {
@@ -58,6 +75,10 @@ const AdditionalFilesStep: React.FC = () => {
       }
       
       localStorage.setItem('referenceContents', JSON.stringify(referenceContents));
+      
+      // Store uploaded images information
+      localStorage.setItem('uploadedImages', JSON.stringify(uploadedImages));
+      
       navigate('/submit-review');
     } catch (err) {
       setError('Failed to save selected reference files');
@@ -67,7 +88,7 @@ const AdditionalFilesStep: React.FC = () => {
   return (
     <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h5" component="h1" gutterBottom>
-        Step 4: Select Additional Reference Files
+        Step 4: Select Additional Context
       </Typography>
 
       {error && (
@@ -75,6 +96,10 @@ const AdditionalFilesStep: React.FC = () => {
           {error}
         </Alert>
       )}
+
+      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+        Reference Files
+      </Typography>
 
       <FormGroup sx={{ mb: 3 }}>
         {REFERENCE_FILES.map((file) => (
@@ -90,7 +115,11 @@ const AdditionalFilesStep: React.FC = () => {
           />
         ))}
       </FormGroup>
-
+      
+      <Divider sx={{ my: 3 }} />
+      
+      <ImageUploadComponent onImagesChange={handleImagesChange} />
+      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
         <Button
           variant="outlined"

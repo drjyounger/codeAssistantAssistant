@@ -11,6 +11,7 @@ import {
 import { generateSystemPrompt } from '../../prompts/systemPrompt';
 import { REFERENCE_FILES } from '../../references/referenceManifest';
 import { JiraTicket } from '../../types';
+import { UploadedImage } from '../ImageUploadComponent';
 
 // Add interface for reference file structure
 interface ReferenceFileContent {
@@ -35,6 +36,7 @@ const ReviewSubmissionStep: React.FC = () => {
       const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
+      const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
 
       // Convert referenceContents into the format expected by the LLM
       const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {
@@ -47,6 +49,7 @@ const ReviewSubmissionStep: React.FC = () => {
       });
 
       console.log('[DEBUG] Final references being submitted:', validReferenceFiles);
+      console.log('[DEBUG] Uploaded images being submitted:', uploadedImages.length);
 
       console.log('[client] [Step5:ReviewSubmission] Sending data to LLM...');
       
@@ -58,7 +61,8 @@ const ReviewSubmissionStep: React.FC = () => {
         body: JSON.stringify({
           jiraTickets,
           concatenatedFiles,
-          referenceFiles: validReferenceFiles
+          referenceFiles: validReferenceFiles,
+          uploadedImages
         })
       });
 
@@ -93,6 +97,7 @@ const ReviewSubmissionStep: React.FC = () => {
       const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
       const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
+      const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
 
       // Convert referenceContents into the format expected by the LLM
       const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {
@@ -107,7 +112,8 @@ const ReviewSubmissionStep: React.FC = () => {
       const promptString = generateSystemPrompt({
         jiraTickets,
         concatenatedFiles,
-        referenceFiles: validReferenceFiles
+        referenceFiles: validReferenceFiles,
+        designImages: uploadedImages
       });
 
       setPromptPreview(promptString);

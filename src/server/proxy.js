@@ -6,6 +6,8 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const fs = require('fs').promises;
 const { generateSystemPrompt } = require('../prompts/systemPrompt');
 const { generateCodeReview } = require('../services/LLMService');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 app.use(cors());
@@ -15,6 +17,165 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const JIRA_API_BASE_URL = process.env.REACT_APP_JIRA_API_URL;
 const JIRA_API_TOKEN = process.env.REACT_APP_JIRA_API_TOKEN;
 const JIRA_EMAIL = process.env.REACT_APP_JIRA_EMAIL;
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
+
+// Setup temporary file storage for uploads
+const UPLOADS_DIR = path.join(__dirname, '../../temp-uploads');
+
+// Create uploads directory if it doesn't exist
+(async () => {
+  try {
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  } catch (err) {
+    console.error('Failed to create uploads directory:', err);
+  }
+})();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const fileId = uuidv4();
+    const fileExtension = path.extname(file.originalname);
+    cb(null, `${fileId}${fileExtension}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    // Return file metadata
+    const fileId = path.basename(req.file.filename, path.extname(req.file.filename));
+    const fileUrl = `/api/uploads/${req.file.filename}`;
+    
+    res.json({
+      success: true,
+      file: {
+        id: fileId,
+        name: req.file.originalname,
+        type: req.file.mimetype,
+        size: req.file.size,
+        url: fileUrl
+      }
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: `File upload failed: ${error.message}`
+    });
+  }
+});
+
+// Serve uploaded files
+app.get('/api/uploads/:filename', async (req, res) => {
+  try {
+    const filePath = path.join(UPLOADS_DIR, req.params.filename);
+    
+    // Ensure the file exists
+    try {
+      await fs.access(filePath);
+    } catch (err) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+    
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('Error serving file:', error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to serve file: ${error.message}`
+    });
+  }
+});
+
+// Delete uploaded file
+app.delete('/api/upload/:fileId', async (req, res) => {
+  try {
+    // Find the file with the matching ID
+    const files = await fs.readdir(UPLOADS_DIR);
+    const fileToDelete = files.find(file => file.startsWith(req.params.fileId));
+    
+    if (!fileToDelete) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    }
+    
+    // Delete the file
+    const filePath = path.join(UPLOADS_DIR, fileToDelete);
+    await fs.unlink(filePath);
+    
+    res.json({
+      success: true
+    });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to delete file: ${error.message}`
+    });
+  }
+});
+
+// Upload a file to Gemini API
+const uploadFileToGemini = async (filePath) => {
+  try {
+    const fileContent = await fs.readFile(filePath);
+    const formData = new FormData();
+    
+    // Get the file extension
+    const fileName = path.basename(filePath);
+    const mimeType = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') 
+      ? 'image/jpeg' 
+      : fileName.endsWith('.png') 
+        ? 'image/png' 
+        : 'application/octet-stream';
+    
+    // Create a file object
+    const fileBlob = new Blob([fileContent], { type: mimeType });
+    formData.append('file', fileBlob, fileName);
+    
+    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`;
+    const response = await axios.post(uploadUrl, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }
+    });
+    
+    return response.data.file;
+  } catch (error) {
+    console.error('Failed to upload file to Gemini:', error);
+    throw error;
+  }
+};
 
 app.get('/api/jira/ticket/:ticketNumber', async (req, res) => {
   try {
@@ -155,14 +316,15 @@ app.post('/api/local/file', async (req, res) => {
 
 app.post('/api/generate-review', async (req, res) => {
   try {
-    const { jiraTickets, concatenatedFiles, referenceFiles } = req.body;
+    const { jiraTickets, concatenatedFiles, referenceFiles, uploadedImages } = req.body;
     
     console.log('[DEBUG] Received request body:', {
       hasJiraTickets: !!jiraTickets,
       ticketsLength: jiraTickets?.length,
       hasFiles: !!concatenatedFiles,
       filesLength: concatenatedFiles?.length,
-      referencesLength: referenceFiles?.length
+      referencesLength: referenceFiles?.length,
+      imagesLength: uploadedImages?.length
     });
     
     if (!concatenatedFiles) {
@@ -175,7 +337,8 @@ app.post('/api/generate-review', async (req, res) => {
     const result = await generateCodeReview({
       jiraTickets,
       concatenatedFiles,
-      referenceFiles
+      referenceFiles,
+      uploadedImages
     });
 
     if (!result.success) {
