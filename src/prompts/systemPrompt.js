@@ -179,6 +179,7 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 2. AFFECTED FILES
 - Identify all files that will be touched or referenced when working on the Jira ticket(s), including the full paths
 - Identify new files that need to be created and their full path
+- File names and paths of image assets that need to be added to the project
 
 3. A HIGHLY DETAILED INSTRUCTION GUIDE FOR IMPLEMENTING THE JIRA TICKET(S)
 - Instructions should be clear and highly-detailed
