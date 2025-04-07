@@ -97,7 +97,7 @@ Your job is to analyze the provided information and create a detailed, step-by-s
 Below you will find:
 1. Jira ticket details
 2. A concatenation of relevant code files for context
-3. Additional reference materials (coding standards, schema, etc.)
+3. Additional reference materials (coding standards, schema, business context, screenshots, etc.)
 4. Design screenshots for visual implementation guidance
 
 Take your time and analyze the information carefully.  The TempStars codebase is large with some legacy components.  
@@ -138,7 +138,7 @@ ${formattedReferenceFiles}
 
 ${formattedDesignImages}
 
-Note: The actual design screenshots are included in this message as image attachments. Reference them when providing UI implementation instructions.
+Note: If provided, the actual design screenshots are included in this message as image attachments. Reference them when providing UI implementation instructions.
 
 =====END DESIGN SCREENSHOTS=====
 
@@ -169,6 +169,7 @@ REVIEW GUIDELINES:
    - Pay close attention to UI elements, layouts, and visual details shown in the designs
    - Provide specific instructions on implementing the UI components shown in the screenshots
    - When relevant, include CSS styling details that match the design screenshots
+   - The TempStars platform is on mobile, tablet and desktop.  So optimize your implementation for all devices.
 
 Please provide your guidance and instructions in the following structure:
 
