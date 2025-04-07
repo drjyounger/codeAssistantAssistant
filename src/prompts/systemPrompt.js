@@ -1,17 +1,35 @@
-import { JiraTicket, DesignImage, SystemPromptParams } from '../types';
+/**
+ * @typedef {Object} ReferenceFile
+ * @property {string} name
+ * @property {string} type
+ * @property {string} content
+ */
 
-interface ReferenceFile {
-  name: string;
-  type: string;
-  content: string;
-}
+/**
+ * @typedef {Object} DesignImage
+ * @property {string} id
+ * @property {string} name
+ * @property {string} type
+ * @property {number} size
+ * @property {string} url
+ * @property {string} [preview]
+ */
 
-export const generateSystemPrompt = ({
+/**
+ * Generates the system prompt for the AI model
+ * @param {Object} params
+ * @param {Array} params.jiraTickets - Jira ticket information
+ * @param {string} params.concatenatedFiles - Concatenated source code files
+ * @param {Array} params.referenceFiles - Additional reference files
+ * @param {DesignImage[]} [params.designImages=[]] - Design image information
+ * @returns {string} The formatted system prompt
+ */
+const generateSystemPrompt = ({
   jiraTickets,
   concatenatedFiles,
   referenceFiles,
   designImages = []
-}: SystemPromptParams): string => {
+}) => {
   console.log('[DEBUG] generateSystemPrompt received referenceFiles:', referenceFiles);
   console.log('[DEBUG] generateSystemPrompt received designImages:', designImages);
   
@@ -24,7 +42,7 @@ export const generateSystemPrompt = ({
   console.log('[DEBUG] Processing reference files...');
   const formattedReferenceFiles = Array.isArray(referenceFiles) && referenceFiles.length > 0
     ? referenceFiles
-        .map((file: ReferenceFile) => {
+        .map(file => {
           console.log(`[DEBUG] Formatting reference file: ${file.name}`, {
             contentLength: file.content.length,
             type: file.type
@@ -62,7 +80,7 @@ ${formattedContent}
   console.log('[DEBUG] Processing design images...');
   const formattedDesignImages = Array.isArray(designImages) && designImages.length > 0
     ? designImages
-        .map((image: DesignImage, index: number) => `Image ${index + 1}: ${image.name} (${image.type})`)
+        .map((image, index) => `Image ${index + 1}: ${image.name} (${image.type})`)
         .join('\n')
     : 'No design screenshots provided.';
 
@@ -187,6 +205,5 @@ Reference specific files and lines of code and providing specific examples and s
 When apprpriate, add some broader explanations to help educate the developer about the TempStars codebase and project.`;
 };
 
-// Add CommonJS module.exports for compatibility with require()
-// This helps with the transition from JavaScript to TypeScript
+// Export for Node.js
 module.exports = { generateSystemPrompt }; 

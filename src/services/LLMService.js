@@ -1,4 +1,4 @@
-const { generateSystemPrompt } = require('../prompts/systemPrompt.ts');
+const { generateSystemPrompt } = require('../prompts/systemPrompt');
 const fetch = require('node-fetch');
 const path = require('path');
 const fs = require('fs').promises;
@@ -99,43 +99,42 @@ const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
     if (imageFiles && imageFiles.length > 0) {
       console.log(`[DEBUG] Preparing multimodal request with ${imageFiles.length} images`);
       
-      // Create the contents array with text and image files
-      const contents = [];
-      
-      // Add the system prompt as text
-      contents.push({
-        parts: [{
-          text: promptString
-        }]
-      });
-      
-      // Add each image file as a separate part
-      for (const imageFile of imageFiles) {
-        contents.push({
-          parts: [{
-            file_data: {
-              file_uri: imageFile.uri,
-              mime_type: imageFile.mimeType
-            }
-          }]
-        });
-      }
-      
+      // Create the request with contents array structured with roles
       requestBody = {
-        contents,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: promptString }
+            ]
+          }
+        ],
         generationConfig: {
           ...GEMINI_CONFIG,
           temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
         }
       };
+      
+      // Add each image file to the user's parts array
+      for (const imageFile of imageFiles) {
+        requestBody.contents[0].parts.push({
+          file_data: {
+            file_uri: imageFile.uri,
+            mime_type: imageFile.mimeType
+          }
+        });
+      }
     } else {
       // Standard text-only request
       requestBody = {
-        contents: [{
-          parts: [{
-            text: promptString
-          }]
-        }],
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: promptString }
+            ]
+          }
+        ],
         generationConfig: {
           ...GEMINI_CONFIG,
           temperature: retryCount > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * retryCount)) : GEMINI_CONFIG.temperature
@@ -146,6 +145,7 @@ const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
     console.log(`[DEBUG] Request body structure:`, JSON.stringify({
       ...requestBody,
       contents: requestBody.contents.map(content => ({
+        role: content.role,
         parts: content.parts.map(part => {
           if (part.text) {
             return { text: part.text.substring(0, 200) + '...[truncated]' };
