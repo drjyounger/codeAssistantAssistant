@@ -316,7 +316,7 @@ app.post('/api/local/file', async (req, res) => {
 
 app.post('/api/generate-review', async (req, res) => {
   try {
-    const { jiraTickets, concatenatedFiles, referenceFiles, uploadedImages } = req.body;
+    const { jiraTickets, concatenatedFiles, referenceFiles, uploadedImages, uploadedVideos } = req.body;
     
     console.log('[DEBUG] Received request body:', {
       hasJiraTickets: !!jiraTickets,
@@ -324,7 +324,8 @@ app.post('/api/generate-review', async (req, res) => {
       hasFiles: !!concatenatedFiles,
       filesLength: concatenatedFiles?.length,
       referencesLength: referenceFiles?.length,
-      imagesLength: uploadedImages?.length
+      imagesLength: uploadedImages?.length,
+      videosLength: uploadedVideos?.length
     });
     
     if (!concatenatedFiles) {
@@ -338,7 +339,8 @@ app.post('/api/generate-review', async (req, res) => {
       jiraTickets,
       concatenatedFiles,
       referenceFiles,
-      uploadedImages
+      uploadedImages,
+      uploadedVideos
     });
 
     if (!result.success) {

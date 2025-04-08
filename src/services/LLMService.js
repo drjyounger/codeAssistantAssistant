@@ -185,7 +185,7 @@ const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
   }
 };
 
-const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [], uploadedImages = [] }) => {
+const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [], uploadedImages = [], uploadedVideos = [] }) => {
   const startTime = Date.now();
   try {
     // Extract model name from the API URL
@@ -216,11 +216,17 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
       console.warn('Warning: uploadedImages is not an array, converting to array');
       uploadedImages = uploadedImages ? [uploadedImages] : [];
     }
+    
+    if (!Array.isArray(uploadedVideos)) {
+      console.warn('Warning: uploadedVideos is not an array, converting to array');
+      uploadedVideos = uploadedVideos ? [uploadedVideos] : [];
+    }
 
     console.log(`- Number of Jira tickets: ${jiraTickets.length}`);
     console.log(`- Concatenated files size: ${concatenatedFiles.length} characters`);
     console.log(`- Reference files included: ${referenceFiles.length}`);
     console.log(`- Image files included: ${uploadedImages.length}`);
+    console.log(`- Video files included: ${uploadedVideos.length}`);
     console.log('-------------------------------------');
 
     // Upload image files to Gemini if needed
@@ -258,13 +264,50 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
         throw new Error(`Failed to upload images to Gemini: ${error.message}`);
       }
     }
+    
+    // Upload video files to Gemini if needed
+    let geminiVideoFiles = [];
+    if (uploadedVideos.length > 0) {
+      console.log(`🎬 Uploading ${uploadedVideos.length} video files to Gemini API...`);
+      
+      // Get the uploads directory path
+      const uploadsDir = path.join(__dirname, '../../temp-uploads');
+      
+      try {
+        for (const video of uploadedVideos) {
+          // Find the file in the uploads directory
+          const files = await fs.readdir(uploadsDir);
+          const videoFile = files.find(file => file.startsWith(video.id));
+          
+          if (videoFile) {
+            const filePath = path.join(uploadsDir, videoFile);
+            console.log(`- Uploading video: ${video.name} (${filePath})`);
+            
+            // Upload file to Gemini
+            const geminiFile = await uploadFileToGemini(filePath);
+            console.log(`  ✅ Uploaded to Gemini: ${geminiFile.name}`);
+            
+            // Save the file data
+            geminiVideoFiles.push(geminiFile);
+          } else {
+            console.warn(`⚠️ Video file not found for ID: ${video.id}`);
+          }
+        }
+        
+        console.log(`✅ Successfully uploaded ${geminiVideoFiles.length} of ${uploadedVideos.length} videos to Gemini API`);
+      } catch (error) {
+        console.error('❌ Error uploading videos to Gemini:', error);
+        throw new Error(`Failed to upload videos to Gemini: ${error.message}`);
+      }
+    }
 
     console.log('🚀 Preparing LLM API call...');
     let promptString = generateSystemPrompt({
       jiraTickets,
       concatenatedFiles,
       referenceFiles,
-      designImages: uploadedImages
+      designImages: uploadedImages,
+      uploadedVideos
     });
 
     // Add explicit section requirements
@@ -283,6 +326,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     console.log(`- Total length: ${promptString.length} characters`);
     console.log(`- Estimated tokens: ~${estimatedTokens}`);
     console.log(`- Images: ${geminiImageFiles.length}`);
+    console.log(`- Videos: ${geminiVideoFiles.length}`);
 
     if (estimatedTokens > MAX_PROMPT_TOKENS) {
       throw new Error(`Prompt too large (${estimatedTokens} tokens). Maximum allowed is ${MAX_PROMPT_TOKENS} tokens.`);
@@ -290,53 +334,87 @@ Each section is required and must maintain this exact naming. Do not skip any se
 
     console.log('-------------------------------------');
 
-    // Try up to 3 times with different configurations
-    let generatedText;
-    let success = false;
-    let lastError;
-
-    for (let attempt = 0; attempt < 3 && !success; attempt++) {
-      try {
-        console.log(`📡 Sending request to Gemini API (attempt ${attempt + 1}/3)...`);
-        console.log(`- Model: ${modelName}`);
-        console.log(`- Temperature: ${attempt > 0 ? Math.max(0.3, GEMINI_CONFIG.temperature - (0.1 * attempt)) : GEMINI_CONFIG.temperature}`);
-        console.log(`- Images: ${geminiImageFiles.length}`);
-        console.log(`- Timestamp: ${new Date().toISOString()}`);
-        
-        generatedText = await makeRequest(promptString, geminiImageFiles, attempt);
-        
-        console.log('-------------------------------------');
-        console.log('📊 Generation Results:');
-        console.log(`- Response length: ${generatedText.length} characters`);
-        console.log(`- Time taken: ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
-
-        // Validate response has all required sections
-        if (validateResponse(generatedText)) {
-          success = true;
-          break;
-        } else {
-          console.log(`❌ Attempt ${attempt + 1} failed: Missing required sections`);
-          if (attempt < 2) {
-            console.log('🔄 Retrying with adjusted parameters...\n');
+    // Prepare API call payload
+    console.log('🤖 Calling Gemini API...');
+    console.log(`- Model: ${modelName}`);
+    console.log(`- Temperature: ${GEMINI_CONFIG.temperature}`);
+    console.log(`- Using ${geminiImageFiles.length} image files and ${geminiVideoFiles.length} video files`);
+    
+    // Build the contents array with media files interspersed
+    let contents = [];
+    
+    // Add text first
+    contents.push(promptString);
+    
+    // Add images and videos if present
+    if (geminiImageFiles.length > 0 || geminiVideoFiles.length > 0) {
+      contents.push("\n\nAnalyze these media files in relation to the Jira ticket implementation:");
+      
+      // Add image files
+      for (const imageFile of geminiImageFiles) {
+        contents.push({
+          fileData: {
+            fileUri: imageFile.uri,
+            mimeType: "image/jpeg" // Assuming most images will be JPEG
           }
-        }
-      } catch (error) {
-        lastError = error;
-        console.error(`❌ Attempt ${attempt + 1} failed:`, error.message);
-        if (attempt < 2) {
-          console.log('🔄 Retrying...\n');
-        }
+        });
+      }
+      
+      // Add video files
+      for (const videoFile of geminiVideoFiles) {
+        contents.push({
+          fileData: {
+            fileUri: videoFile.uri,
+            mimeType: "video/mp4" // Assuming most videos will be MP4
+          }
+        });
       }
     }
-
-    // Clean up Gemini image files
-    if (geminiImageFiles.length > 0) {
-      console.log('🧹 Cleaning up Gemini image files...');
-      // Note: In a production environment, add code here to delete the files from Gemini API
-    }
-
-    if (!success) {
-      throw lastError || new Error('Failed to generate valid review after 3 attempts');
+    
+    // Make the API call
+    const apiStartTime = Date.now();
+    const response = await axios.post(GEMINI_API_URL, {
+      contents: contents,
+      generationConfig: GEMINI_CONFIG
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY
+      }
+    });
+    const apiEndTime = Date.now();
+    
+    console.log(`✅ API call completed in ${(apiEndTime - apiStartTime) / 1000} seconds`);
+    
+    // Clean up uploaded files to avoid storage issues
+    const cleanupStartTime = Date.now();
+    
+    try {
+      // Clean up image files
+      for (const imageFile of geminiImageFiles) {
+        try {
+          await axios.delete(`https://generativelanguage.googleapis.com/v1beta/files/${imageFile.name.split('/')[1]}`, {
+            params: { key: GEMINI_API_KEY }
+          });
+          console.log(`🧹 Deleted image file: ${imageFile.name}`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to delete image file ${imageFile.name}:`, error.message);
+        }
+      }
+      
+      // Clean up video files
+      for (const videoFile of geminiVideoFiles) {
+        try {
+          await axios.delete(`https://generativelanguage.googleapis.com/v1beta/files/${videoFile.name.split('/')[1]}`, {
+            params: { key: GEMINI_API_KEY }
+          });
+          console.log(`🧹 Deleted video file: ${videoFile.name}`);
+        } catch (error) {
+          console.warn(`⚠️ Failed to delete video file ${videoFile.name}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Error during file cleanup:', error.message);
     }
 
     console.log('=====================================');
@@ -344,7 +422,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
 
     return {
       success: true,
-      data: generatedText
+      data: response.data.candidates[0].content.parts[0].text
     };
   } catch (error) {
     console.error('\n❌ Error in Code Review Generation');

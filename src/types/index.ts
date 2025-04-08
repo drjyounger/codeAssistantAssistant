@@ -37,6 +37,17 @@ export interface DesignImage {
   preview?: string;
 }
 
+// Video types
+export interface UploadedVideo {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url: string;
+  preview: string;
+  duration?: number;
+}
+
 // System prompt types
 export interface SystemPromptParams {
   jiraTickets: JiraTicket[];

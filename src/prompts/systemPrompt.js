@@ -16,22 +16,36 @@
  */
 
 /**
+ * @typedef {Object} UploadedVideo
+ * @property {string} id
+ * @property {string} name
+ * @property {string} type
+ * @property {number} size
+ * @property {string} url
+ * @property {string} preview
+ * @property {number} [duration]
+ */
+
+/**
  * Generates the system prompt for the AI model
  * @param {Object} params
  * @param {Array} params.jiraTickets - Jira ticket information
  * @param {string} params.concatenatedFiles - Concatenated source code files
  * @param {Array} params.referenceFiles - Additional reference files
  * @param {DesignImage[]} [params.designImages=[]] - Design image information
+ * @param {UploadedVideo[]} [params.uploadedVideos=[]] - Uploaded video information
  * @returns {string} The formatted system prompt
  */
 const generateSystemPrompt = ({
   jiraTickets,
   concatenatedFiles,
   referenceFiles,
-  designImages = []
+  designImages = [],
+  uploadedVideos = []
 }) => {
   console.log('[DEBUG] generateSystemPrompt received referenceFiles:', referenceFiles);
   console.log('[DEBUG] generateSystemPrompt received designImages:', designImages);
+  console.log('[DEBUG] generateSystemPrompt received uploadedVideos:', uploadedVideos);
   
   // Format multiple tickets
   const formattedTickets = Array.isArray(jiraTickets) 
@@ -84,6 +98,19 @@ ${formattedContent}
         .join('\n')
     : 'No design screenshots provided.';
 
+  // Format uploaded videos information
+  console.log('[DEBUG] Processing uploaded videos...');
+  const formattedVideos = Array.isArray(uploadedVideos) && uploadedVideos.length > 0
+    ? uploadedVideos
+        .map((video, index) => {
+          const duration = video.duration 
+            ? `${Math.floor(video.duration / 60)}:${Math.floor(video.duration % 60).toString().padStart(2, '0')}`
+            : 'unknown duration';
+          return `Video ${index + 1}: ${video.name} (${video.type}, ${duration})`;
+        })
+        .join('\n')
+    : 'No explanation videos provided.';
+
   console.log('[DEBUG] Formatted reference files:', {
     length: formattedReferenceFiles.length,
     isEmpty: formattedReferenceFiles === 'No additional reference files selected.',
@@ -99,6 +126,7 @@ Below you will find:
 2. A concatenation of relevant code files for context
 3. Additional reference materials (coding standards, schema, business context, screenshots, etc.)
 4. Design screenshots for visual implementation guidance
+5. Explanation videos describing implementation details
 
 Take your time and analyze the information carefully.  The TempStars codebase is large with some legacy components.  
 
@@ -142,6 +170,14 @@ Note: If provided, the actual design screenshots are included in this message as
 
 =====END DESIGN SCREENSHOTS=====
 
+=====START EXPLANATION VIDEOS=====
+
+${formattedVideos}
+
+Note: If provided, the actual explanation videos are included in this message as video attachments. Watch them to understand the implementation requirements more clearly.
+
+=====END EXPLANATION VIDEOS=====
+
 REVIEW GUIDELINES:
 1. Code Quality:
    - Instructions should follow the coding standards and best practices
@@ -171,6 +207,11 @@ REVIEW GUIDELINES:
    - When relevant, include CSS styling details that match the design screenshots
    - The TempStars platform is on mobile, tablet and desktop.  So optimize your implementation for all devices.
 
+7. Video Context:
+   - If explanation videos are provided, reference insights from those videos in your implementation plan
+   - Use the verbal explanations in the videos to understand nuanced requirements that may not be clear from the tickets alone
+   - Align your implementation approach with any specific guidance given in the videos
+
 Please provide your guidance and instructions in the following structure:
 
 1. SUMMARY
@@ -187,6 +228,7 @@ An overview of the the Jira ticket(s) along with the scope and purpose of the wo
 - Instructions should be organized and laid out in a way that is easy to understand and follow for a beginner developer
 - Instructions should be organized and ordered in a prioritized step-by-step manner "first do this, then do that, etc." that is easy to understand and follow
 - If design screenshots are provided, reference them specifically when describing UI implementation
+- If explanation videos are provided, refer to timestamps or specific information from those videos
 - Include notes on how to implement specific visual elements seen in the designs
 
 4. DETAILED BREAKDOWN OF RECOMMENDED CHANGES AND REASONING BEHIND THE CHANGES

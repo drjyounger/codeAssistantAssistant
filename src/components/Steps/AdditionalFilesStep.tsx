@@ -14,11 +14,14 @@ import {
 import { REFERENCE_FILES, ReferenceFile } from '../../references/referenceManifest';
 import { readReferenceFile } from '../../services/LocalFileService';
 import ImageUploadComponent, { UploadedImage } from '../ImageUploadComponent';
+import VideoUploadComponent from '../VideoUploadComponent';
+import { UploadedVideo } from '../../types';
 
 const AdditionalFilesStep: React.FC = () => {
   const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,6 +40,16 @@ const AdditionalFilesStep: React.FC = () => {
         console.error('Failed to parse saved images:', err);
       }
     }
+    
+    // Restore any previously uploaded videos from localStorage
+    const savedVideos = localStorage.getItem('uploadedVideos');
+    if (savedVideos) {
+      try {
+        setUploadedVideos(JSON.parse(savedVideos));
+      } catch (err) {
+        console.error('Failed to parse saved videos:', err);
+      }
+    }
   }, [navigate]);
 
   const handleFileToggle = (fileId: string) => {
@@ -51,6 +64,10 @@ const AdditionalFilesStep: React.FC = () => {
 
   const handleImagesChange = (images: UploadedImage[]) => {
     setUploadedImages(images);
+  };
+
+  const handleVideosChange = (videos: UploadedVideo[]) => {
+    setUploadedVideos(videos);
   };
 
   const handleNext = async () => {
@@ -78,6 +95,9 @@ const AdditionalFilesStep: React.FC = () => {
       
       // Store uploaded images information
       localStorage.setItem('uploadedImages', JSON.stringify(uploadedImages));
+      
+      // Store uploaded videos information
+      localStorage.setItem('uploadedVideos', JSON.stringify(uploadedVideos));
       
       navigate('/submit-review');
     } catch (err) {
@@ -119,6 +139,10 @@ const AdditionalFilesStep: React.FC = () => {
       <Divider sx={{ my: 3 }} />
       
       <ImageUploadComponent onImagesChange={handleImagesChange} />
+      
+      <Divider sx={{ my: 3 }} />
+      
+      <VideoUploadComponent onVideosChange={handleVideosChange} />
       
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
         <Button
