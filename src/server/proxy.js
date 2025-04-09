@@ -46,18 +46,13 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 25 * 1024 * 1024 // 25MB (increased to accommodate videos)
+    fileSize: 5 * 1024 * 1024 // 5MB
   },
   fileFilter: (req, file, cb) => {
-    // Accept both image and video files
-    if (file.mimetype.startsWith('image/') || 
-        file.mimetype === 'video/mp4' || 
-        file.mimetype === 'video/webm' || 
-        file.mimetype === 'video/quicktime' || 
-        file.mimetype === 'video/x-msvideo') {
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image and video files are allowed'));
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
@@ -72,7 +67,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Extract the fileId from the saved filename (without extension)
+    // Return file metadata
     const fileId = path.basename(req.file.filename, path.extname(req.file.filename));
     const fileUrl = `/api/uploads/${req.file.filename}`;
     

@@ -40,14 +40,6 @@ const uploadFileToGemini = async (filePath) => {
       mimeType = 'image/gif';
     } else if (ext === '.webp') {
       mimeType = 'image/webp';
-    } else if (ext === '.mp4') {
-      mimeType = 'video/mp4';
-    } else if (ext === '.webm') {
-      mimeType = 'video/webm';
-    } else if (ext === '.mov') {
-      mimeType = 'video/quicktime';
-    } else if (ext === '.avi') {
-      mimeType = 'video/x-msvideo';
     } else {
       mimeType = 'application/octet-stream';
     }
@@ -363,7 +355,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
         contents.push({
           fileData: {
             fileUri: imageFile.uri,
-            mimeType: imageFile.mimeType
+            mimeType: "image/jpeg" // Assuming most images will be JPEG
           }
         });
       }
@@ -373,7 +365,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
         contents.push({
           fileData: {
             fileUri: videoFile.uri,
-            mimeType: videoFile.mimeType
+            mimeType: "video/mp4" // Assuming most videos will be MP4
           }
         });
       }
