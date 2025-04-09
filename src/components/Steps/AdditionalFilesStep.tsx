@@ -122,7 +122,7 @@ const AdditionalFilesStep: React.FC = () => {
       </Typography>
 
       <FormGroup sx={{ mb: 3 }}>
-        {REFERENCE_FILES.map((file) => (
+        {REFERENCE_FILES.filter(file => file.type === 'coding-standard' || file.type === 'reference').map((file) => (
           <FormControlLabel
             key={file.id}
             control={
