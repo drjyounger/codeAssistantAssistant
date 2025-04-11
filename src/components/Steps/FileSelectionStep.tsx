@@ -14,6 +14,7 @@ import {
 
 import { FileTree } from '../FileTree';
 import { formatConcatenatedFiles } from '../../utils';
+import { saveConcatenatedFiles } from '../../utils/storage';
 
 interface FileTreeProps {
   rootPath: string;
@@ -103,7 +104,15 @@ const FileSelectionStep: React.FC = () => {
       setConcatenatedContent(finalContent);
       setShowSuccess(true);
       
-      localStorage.setItem('concatenatedFiles', finalContent);
+      try {
+        // Use the async storage function
+        await saveConcatenatedFiles(finalContent);
+      } catch (storageError) {
+        console.error('Storage error:', storageError);
+        setError('Failed to store concatenated files: ' + 
+          (storageError instanceof Error ? storageError.message : 'Unknown error'));
+        // Still show the content even if storage failed
+      }
 
       setTimeout(() => {
         document.getElementById('concatenated-content')?.scrollIntoView({ 
@@ -118,10 +127,14 @@ const FileSelectionStep: React.FC = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (concatenatedContent) {
-      localStorage.setItem('concatenatedFiles', concatenatedContent);
-      navigate('/additional-files');
+      try {
+        await saveConcatenatedFiles(concatenatedContent);
+        navigate('/additional-files');
+      } catch (err) {
+        setError('Failed to save concatenated files. The content may be too large.');
+      }
     }
   };
 

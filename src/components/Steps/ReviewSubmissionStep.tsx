@@ -12,6 +12,7 @@ import { generateSystemPrompt } from '../../prompts/systemPrompt';
 import { REFERENCE_FILES } from '../../references/referenceManifest';
 import { JiraTicket, UploadedVideo } from '../../types';
 import { UploadedImage } from '../ImageUploadComponent';
+import { getConcatenatedFiles } from '../../utils/storage';
 
 // Add interface for reference file structure
 interface ReferenceFileContent {
@@ -34,10 +35,14 @@ const ReviewSubmissionStep: React.FC = () => {
     
     try {
       const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
-      const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
+      const concatenatedFiles = await getConcatenatedFiles() || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
       const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
       const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
+
+      if (!concatenatedFiles) {
+        throw new Error('No concatenated files found. Please go back to the file selection step.');
+      }
 
       // Convert referenceContents into the format expected by the LLM
       const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {
@@ -95,13 +100,17 @@ const ReviewSubmissionStep: React.FC = () => {
     }
   };
 
-  const handlePreviewPrompt = () => {
+  const handlePreviewPrompt = async () => {
     try {
       const jiraTickets = JSON.parse(localStorage.getItem('jiraTickets') || '[]') as JiraTicket[];
-      const concatenatedFiles = localStorage.getItem('concatenatedFiles') || '';
+      const concatenatedFiles = await getConcatenatedFiles() || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
       const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
       const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
+
+      if (!concatenatedFiles) {
+        throw new Error('No concatenated files found. Please go back to the file selection step.');
+      }
 
       // Convert referenceContents into the format expected by the LLM
       const validReferenceFiles: ReferenceFileContent[] = Object.entries(referenceContents).map(([fileId, content]) => {

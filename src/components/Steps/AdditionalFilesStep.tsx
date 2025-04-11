@@ -9,13 +9,15 @@ import {
   FormControlLabel,
   Checkbox,
   Alert,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
 import { REFERENCE_FILES, ReferenceFile } from '../../references/referenceManifest';
 import { readReferenceFile } from '../../services/LocalFileService';
 import ImageUploadComponent, { UploadedImage } from '../ImageUploadComponent';
 import VideoUploadComponent from '../VideoUploadComponent';
 import { UploadedVideo } from '../../types';
+import { getConcatenatedFiles } from '../../utils/storage';
 
 const AdditionalFilesStep: React.FC = () => {
   const navigate = useNavigate();
@@ -23,33 +25,48 @@ const AdditionalFilesStep: React.FC = () => {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Verify we have required data from previous steps
-    const concatenatedFiles = localStorage.getItem('concatenatedFiles');
-    if (!concatenatedFiles) {
-      navigate('/file-selection');
-    }
-    
-    // Restore any previously uploaded images from localStorage
-    const savedImages = localStorage.getItem('uploadedImages');
-    if (savedImages) {
+    const checkPreviousStep = async () => {
+      setLoading(true);
       try {
-        setUploadedImages(JSON.parse(savedImages));
+        // Verify we have required data from previous steps
+        const concatenatedFiles = await getConcatenatedFiles();
+        if (!concatenatedFiles) {
+          navigate('/file-selection');
+          return;
+        }
+        
+        // Restore any previously uploaded images from localStorage
+        const savedImages = localStorage.getItem('uploadedImages');
+        if (savedImages) {
+          try {
+            setUploadedImages(JSON.parse(savedImages));
+          } catch (err) {
+            console.error('Failed to parse saved images:', err);
+          }
+        }
+        
+        // Restore any previously uploaded videos from localStorage
+        const savedVideos = localStorage.getItem('uploadedVideos');
+        if (savedVideos) {
+          try {
+            setUploadedVideos(JSON.parse(savedVideos));
+          } catch (err) {
+            console.error('Failed to parse saved videos:', err);
+          }
+        }
       } catch (err) {
-        console.error('Failed to parse saved images:', err);
+        console.error('Error checking previous step data:', err);
+        setError('Failed to load data from previous step');
+        navigate('/file-selection');
+      } finally {
+        setLoading(false);
       }
-    }
+    };
     
-    // Restore any previously uploaded videos from localStorage
-    const savedVideos = localStorage.getItem('uploadedVideos');
-    if (savedVideos) {
-      try {
-        setUploadedVideos(JSON.parse(savedVideos));
-      } catch (err) {
-        console.error('Failed to parse saved videos:', err);
-      }
-    }
+    checkPreviousStep();
   }, [navigate]);
 
   const handleFileToggle = (fileId: string) => {
@@ -117,47 +134,55 @@ const AdditionalFilesStep: React.FC = () => {
         </Alert>
       )}
 
-      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-        Reference Files
-      </Typography>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
+          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+            Reference Files
+          </Typography>
 
-      <FormGroup sx={{ mb: 3 }}>
-        {REFERENCE_FILES.filter(file => file.type === 'coding-standard' || file.type === 'reference').map((file) => (
-          <FormControlLabel
-            key={file.id}
-            control={
-              <Checkbox
-                checked={selectedFiles.has(file.id)}
-                onChange={() => handleFileToggle(file.id)}
+          <FormGroup sx={{ mb: 3 }}>
+            {REFERENCE_FILES.filter(file => file.type === 'coding-standard' || file.type === 'reference').map((file) => (
+              <FormControlLabel
+                key={file.id}
+                control={
+                  <Checkbox
+                    checked={selectedFiles.has(file.id)}
+                    onChange={() => handleFileToggle(file.id)}
+                  />
+                }
+                label={`${file.name} (${file.type})`}
               />
-            }
-            label={`${file.name} (${file.type})`}
-          />
-        ))}
-      </FormGroup>
-      
-      <Divider sx={{ my: 3 }} />
-      
-      <ImageUploadComponent onImagesChange={handleImagesChange} />
-      
-      <Divider sx={{ my: 3 }} />
-      
-      <VideoUploadComponent onVideosChange={handleVideosChange} />
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={() => navigate('/file-selection')}
-        >
-          Back
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleNext}
-        >
-          Next
-        </Button>
-      </Box>
+            ))}
+          </FormGroup>
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <ImageUploadComponent onImagesChange={handleImagesChange} />
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <VideoUploadComponent onVideosChange={handleVideosChange} />
+          
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/file-selection')}
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+            >
+              Next
+            </Button>
+          </Box>
+        </>
+      )}
     </Paper>
   );
 };
