@@ -120,7 +120,7 @@ const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
         requestBody.contents[0].parts.push({
           file_data: {
             file_uri: imageFile.uri,
-            mime_type: imageFile.mimeType
+            mime_type: imageFile.mime_type
           }
         });
       }
@@ -251,8 +251,11 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
             const geminiFile = await uploadFileToGemini(filePath);
             console.log(`  ✅ Uploaded to Gemini: ${geminiFile.name}`);
             
-            // Save the file data
-            geminiImageFiles.push(geminiFile);
+            // Save the file data with mime_type
+            geminiImageFiles.push({
+              ...geminiFile,
+              mime_type: 'image/jpeg'
+            });
           } else {
             console.warn(`⚠️ Image file not found for ID: ${image.id}`);
           }
@@ -287,8 +290,11 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
             const geminiFile = await uploadFileToGemini(filePath);
             console.log(`  ✅ Uploaded to Gemini: ${geminiFile.name}`);
             
-            // Save the file data
-            geminiVideoFiles.push(geminiFile);
+            // Save the file data with mime_type
+            geminiVideoFiles.push({
+              ...geminiFile,
+              mime_type: 'video/mp4'
+            });
           } else {
             console.warn(`⚠️ Video file not found for ID: ${video.id}`);
           }
@@ -344,18 +350,18 @@ Each section is required and must maintain this exact naming. Do not skip any se
     let contents = [];
     
     // Add text first
-    contents.push(promptString);
+    contents.push({ text: promptString });
     
     // Add images and videos if present
     if (geminiImageFiles.length > 0 || geminiVideoFiles.length > 0) {
-      contents.push("\n\nAnalyze these media files in relation to the Jira ticket implementation:");
+      contents.push({ text: "\n\nAnalyze these media files in relation to the Jira ticket implementation:" });
       
       // Add image files
       for (const imageFile of geminiImageFiles) {
         contents.push({
-          fileData: {
-            fileUri: imageFile.uri,
-            mimeType: "image/jpeg" // Assuming most images will be JPEG
+          file_data: {
+            file_uri: imageFile.uri,
+            mime_type: "image/jpeg" // Assuming most images will be JPEG
           }
         });
       }
@@ -363,9 +369,9 @@ Each section is required and must maintain this exact naming. Do not skip any se
       // Add video files
       for (const videoFile of geminiVideoFiles) {
         contents.push({
-          fileData: {
-            fileUri: videoFile.uri,
-            mimeType: "video/mp4" // Assuming most videos will be MP4
+          file_data: {
+            file_uri: videoFile.uri,
+            mime_type: "video/mp4" // Assuming most videos will be MP4
           }
         });
       }
