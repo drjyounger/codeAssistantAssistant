@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { generateSystemPrompt } from '../../prompts/systemPrompt';
 import { REFERENCE_FILES } from '../../references/referenceManifest';
-import { JiraTicket, UploadedVideo } from '../../types';
+import { JiraTicket } from '../../types';
 import { UploadedImage } from '../ImageUploadComponent';
 import { getConcatenatedFiles } from '../../utils/storage';
 
@@ -38,7 +38,7 @@ const ReviewSubmissionStep: React.FC = () => {
       const concatenatedFiles = await getConcatenatedFiles() || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
       const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
-      const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
+      // const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
 
       if (!concatenatedFiles) {
         throw new Error('No concatenated files found. Please go back to the file selection step.');
@@ -56,7 +56,7 @@ const ReviewSubmissionStep: React.FC = () => {
 
       console.log('[DEBUG] Final references being submitted:', validReferenceFiles);
       console.log('[DEBUG] Uploaded images being submitted:', uploadedImages.length);
-      console.log('[DEBUG] Uploaded videos being submitted:', uploadedVideos.length);
+      // console.log('[DEBUG] Uploaded videos being submitted:', uploadedVideos.length);
 
       console.log('[client] [Step5:ReviewSubmission] Sending data to LLM...');
       
@@ -69,8 +69,8 @@ const ReviewSubmissionStep: React.FC = () => {
           jiraTickets,
           concatenatedFiles,
           referenceFiles: validReferenceFiles,
-          uploadedImages,
-          uploadedVideos
+          uploadedImages
+          // uploadedVideos
         })
       });
 
@@ -106,7 +106,7 @@ const ReviewSubmissionStep: React.FC = () => {
       const concatenatedFiles = await getConcatenatedFiles() || '';
       const referenceContents = JSON.parse(localStorage.getItem('referenceContents') || '{}');
       const uploadedImages = JSON.parse(localStorage.getItem('uploadedImages') || '[]') as UploadedImage[];
-      const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
+      // const uploadedVideos = JSON.parse(localStorage.getItem('uploadedVideos') || '[]') as UploadedVideo[];
 
       if (!concatenatedFiles) {
         throw new Error('No concatenated files found. Please go back to the file selection step.');
@@ -126,8 +126,8 @@ const ReviewSubmissionStep: React.FC = () => {
         jiraTickets,
         concatenatedFiles,
         referenceFiles: validReferenceFiles,
-        designImages: uploadedImages,
-        uploadedVideos
+        designImages: uploadedImages
+        // uploadedVideos
       });
 
       setPromptPreview(promptString);

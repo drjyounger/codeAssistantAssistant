@@ -15,15 +15,15 @@ import {
 import { REFERENCE_FILES, ReferenceFile } from '../../references/referenceManifest';
 import { readReferenceFile } from '../../services/LocalFileService';
 import ImageUploadComponent, { UploadedImage } from '../ImageUploadComponent';
-import VideoUploadComponent from '../VideoUploadComponent';
-import { UploadedVideo } from '../../types';
+// import VideoUploadComponent from '../VideoUploadComponent';
+// import { UploadedVideo } from '../../types';
 import { getConcatenatedFiles } from '../../utils/storage';
 
 const AdditionalFilesStep: React.FC = () => {
   const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
-  const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
+  // const [uploadedVideos, setUploadedVideos] = useState<UploadedVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -48,6 +48,7 @@ const AdditionalFilesStep: React.FC = () => {
           }
         }
         
+        /* Comment out video restoration
         // Restore any previously uploaded videos from localStorage
         const savedVideos = localStorage.getItem('uploadedVideos');
         if (savedVideos) {
@@ -57,6 +58,7 @@ const AdditionalFilesStep: React.FC = () => {
             console.error('Failed to parse saved videos:', err);
           }
         }
+        */
       } catch (err) {
         console.error('Error checking previous step data:', err);
         setError('Failed to load data from previous step');
@@ -83,9 +85,11 @@ const AdditionalFilesStep: React.FC = () => {
     setUploadedImages(images);
   };
 
+  /* Comment out video handler
   const handleVideosChange = (videos: UploadedVideo[]) => {
     setUploadedVideos(videos);
   };
+  */
 
   const handleNext = async () => {
     try {
@@ -113,8 +117,13 @@ const AdditionalFilesStep: React.FC = () => {
       // Store uploaded images information
       localStorage.setItem('uploadedImages', JSON.stringify(uploadedImages));
       
+      /* Comment out video storage
       // Store uploaded videos information
       localStorage.setItem('uploadedVideos', JSON.stringify(uploadedVideos));
+      */
+      
+      // Clear any existing uploadedVideos data in localStorage
+      localStorage.removeItem('uploadedVideos');
       
       navigate('/submit-review');
     } catch (err) {
@@ -163,9 +172,11 @@ const AdditionalFilesStep: React.FC = () => {
           
           <ImageUploadComponent onImagesChange={handleImagesChange} />
           
+          {/* Comment out video upload component 
           <Divider sx={{ my: 3 }} />
           
           <VideoUploadComponent onVideosChange={handleVideosChange} />
+          */}
           
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
             <Button

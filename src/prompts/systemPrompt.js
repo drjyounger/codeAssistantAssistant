@@ -33,19 +33,18 @@
  * @param {string} params.concatenatedFiles - Concatenated source code files
  * @param {Array} params.referenceFiles - Additional reference files
  * @param {DesignImage[]} [params.designImages=[]] - Design image information
- * @param {UploadedVideo[]} [params.uploadedVideos=[]] - Uploaded video information
  * @returns {string} The formatted system prompt
  */
 const generateSystemPrompt = ({
   jiraTickets,
   concatenatedFiles,
   referenceFiles,
-  designImages = [],
-  uploadedVideos = []
+  designImages = []
+  // uploadedVideos = []
 }) => {
   console.log('[DEBUG] generateSystemPrompt received referenceFiles:', referenceFiles);
   console.log('[DEBUG] generateSystemPrompt received designImages:', designImages);
-  console.log('[DEBUG] generateSystemPrompt received uploadedVideos:', uploadedVideos);
+  // console.log('[DEBUG] generateSystemPrompt received uploadedVideos:', uploadedVideos);
   
   // Format multiple tickets
   const formattedTickets = Array.isArray(jiraTickets) 
@@ -98,6 +97,7 @@ ${formattedContent}
         .join('\n')
     : 'No design screenshots provided.';
 
+  /* Comment out video processing
   // Format uploaded videos information
   console.log('[DEBUG] Processing uploaded videos...');
   const formattedVideos = Array.isArray(uploadedVideos) && uploadedVideos.length > 0
@@ -110,6 +110,9 @@ ${formattedContent}
         })
         .join('\n')
     : 'No explanation videos provided.';
+  */
+  // Use a placeholder for formattedVideos since we disabled video uploads
+  const formattedVideos = 'No explanation videos provided.';
 
   console.log('[DEBUG] Formatted reference files:', {
     length: formattedReferenceFiles.length,
@@ -316,7 +319,7 @@ When a dental office needs a temporary professional, they post a shift. A "shift
 
 #### Invoicing & Payment
 * Generate invoice in-app or externally.
-* If using TempStars' "Pay Now," the platform processes payment and deposits funds, minus any relevant fees.
+* If using TempStars"Pay Now," the platform processes payment and deposits funds, minus any relevant fees.
 
 #### Review & Continuous Engagement
 * Rate the dental office; keep looking for additional shifts or permanent roles.
@@ -326,11 +329,9 @@ TempStars operates on an AWS instance of RDS SQL database running SQL Engine ver
 
 The following sections describe the database tables, their columns, and relationships that form the foundation of the TempStars platform.
 
-**<span style="text-decoration:underline;">“Hygienist” Table</span>**
+**"Hygienist" Table**
 
-**Description**: Stores information about Talent records (ie. dental hygienists, dental assistants, dental office managers, dental admin and associate dentists).   \
- \
-Note:  There is no email column in this table.  Talent emails are stored in the User table.  To retrieve Talent email addresses, it’s User.email JOINING User ON User.hygienistId = Hygienist.id) \
+**Description**: Stores information about Talent records (ie. dental hygienists, dental assistants, dental office managers, dental admin and associate dentists).  
 
 
 **Columns**:
@@ -343,7 +344,7 @@ Note:  There is no email column in this table.  Talent emails are stored in the 
 
 	•	type (int): Differentiates between dental hygienists (0) and dental assistants (1) and dental admin (2) and associate dentists (3).
 
-	•	createdOn (datetime): This is the date that the Talent registered with TempStars. “NULL” if the registration process was not completed.
+	•	createdOn (datetime): This is the date that the Talent registered with TempStars. "NULL" if the registration process was not completed.
 
 	•	city (varchar): The city where the Talent lives.
 
@@ -355,9 +356,9 @@ Note:  There is no email column in this table.  Talent emails are stored in the 
 
 	•	graduationYear (int): The year when theTalent graduated from their professional school.
 
-•	about (varchar): This is a self-written ‘about me’ section that Talent write for their profiles, similar to a short cover letter.
+•	about (varchar): This is a self-written 'about me' section that Talent write for their profiles, similar to a short cover letter.
 
-	•	status (int): Differentiates between membership status for Talent. (-3: “Blacklisted” means no access to Job Board or temping, -2: “Blocked” means access to Job Board but no access to temping, -1: “Probation” means Talent can only book one shift at a time, 0: “Active” means Talent has full access to temping and Job Board, 1: “Pro” means tTalent has attained a level of great reliability and professionalism and positive feedback with between 5 and 10 temping shifts completed, 2: “Elite” means Talent has attained an exceptional level of professionalism, reliability and positive feedback with more than 10 shifts completed.
+	•	status (int): Differentiates between membership status for Talent. (-3: "Blacklisted" means no access to Job Board or temping, -2: "Blocked" means access to Job Board but no access to temping, -1: "Probation" means Talent can only book one shift at a time, 0: "Active" means Talent has full access to temping and Job Board, 1: "Pro" means tTalent has attained a level of great reliability and professionalism and positive feedback with between 5 and 10 temping shifts completed, 2: "Elite" means Talent has attained an exceptional level of professionalism, reliability and positive feedback with more than 10 shifts completed.
 
 	•	lat(varchar) and lon(varchar): Indicates the latitude and longitude of where the Talent lives
 
@@ -369,11 +370,11 @@ Note:  There is no email column in this table.  Talent emails are stored in the 
 
 •	isComplete: Indicates the Talent has completed signup registration (1: has completed sign-up)
 
-•	isDupe (varchar): This column indicates if the Hygienist record is unique, or if the record is part of a “Duplicate Cluster”.  The value is “NULL” if the record is unique with no duplicates.  If the record is part of a Duplicate Cluster, this value will be “Main” or a number.  If “Main”, it means that record is the Main account of the Duplicate Cluster.  If the value is a number, that number is the Hygienist.id of the Main account for that duplicate cluster.  A number means this is not the Main account.
+•	isDupe (varchar): This column indicates if the Hygienist record is unique, or if the record is part of a "Duplicate Cluster".  The value is "NULL" if the record is unique with no duplicates.  If the record is part of a Duplicate Cluster, this value will be "Main" or a number.  If "Main", it means that record is the Main account of the Duplicate Cluster.  If the value is a number, that number is the Hygienist.id of the Main account for that duplicate cluster.  A number means this is not the Main account.
 
 •	cancellationScore (float): This column is an aggregate scoring of the temping shift cancellations made by the Talent.  The score is calculated based on the number of cancellations and the relative timing of those cancellations to the start of the shift.  A shift that is cancelled close to the start time of the shift is worth a higher score than one that is cancelled a month away.  This score is the sum total points of all cancelled shifts.
 
-**<span style="text-decoration:underline;">“Feedback” Table</span>**
+**"Feedback" Table**
 
 **Description:** Dental offices have a rating and review form they fill out after a shift is completed.  This allows the dental office to assign star ratings to various attributes of the Talent during the shift.  All star ratings are on a 5-star scale. There are also text fields for details related to each category.
 
@@ -381,33 +382,33 @@ Note:  There is no email column in this table.  Talent emails are stored in the 
 
 	•	JobId (int): The ID of the temping shift associated with the feedback (ie. JOIN Job ON Job.id = Feedback.jobId)
 
-	•	clinicalSkillsRating (int): The star rating score attributed to this Talent’s Clinical Skills for that shift, as assessed by the dental office.
+	•	clinicalSkillsRating (int): The star rating score attributed to this Talent's Clinical Skills for that shift, as assessed by the dental office.
 
-	•	clinicalSkillsDetails (text): Comments made by the dental office about that  Talent’s Clinical Skills for that shift.
+	•	clinicalSkillsDetails (text): Comments made by the dental office about that  Talent's Clinical Skills for that shift.
 
-	•	professionalismRating (int): The star rating score attributed to this Talent’s Professionalism for that shift, as assessed by the dental office.
+	•	professionalismRating (int): The star rating score attributed to this Talent's Professionalism for that shift, as assessed by the dental office.
 
-	•	professionalismDetails (text): Comments made by the dental office about that  Talent’s professionalism for that shift.
+	•	professionalismDetails (text): Comments made by the dental office about that  Talent's professionalism for that shift.
 
-	•	communicationRating (int): The star rating score attributed to this Talent’s communication style and skills for that shift, as assessed by the dental office.
+	•	communicationRating (int): The star rating score attributed to this Talent's communication style and skills for that shift, as assessed by the dental office.
 
-	•	communicationDetails (text): Comments made by the dental office about that  Talent’s communication style and skills for that shift.
+	•	communicationDetails (text): Comments made by the dental office about that  Talent's communication style and skills for that shift.
 
-	•	timeManagementRating (int): The star rating score attributed to this Talent’s Time Management for that shift, as assessed by the dental office.  Examples are punctuality and staying on schedule during the day.
+	•	timeManagementRating (int): The star rating score attributed to this Talent's Time Management for that shift, as assessed by the dental office.  Examples are punctuality and staying on schedule during the day.
 
-	•	timeManagementDetails (text): Comments made by the dental office about that  Talent’s Time Management for that shift.
+	•	timeManagementDetails (text): Comments made by the dental office about that  Talent's Time Management for that shift.
 
-	•	rateSatisfactionRating (int): The star rating score attributed to how satisfied the dental office was regarding the Talent’s hourly rate.  For example, was their hourly rate sensibly aligned with their skill and experience.
+	•	rateSatisfactionRating (int): The star rating score attributed to how satisfied the dental office was regarding the Talent's hourly rate.  For example, was their hourly rate sensibly aligned with their skill and experience.
 
 	•	rateSatisfactionDetails (text): Comments made by the dental office about how satisfied they were to pay that hourly rate for the value of the work provided by the Talent.
 
 	•	additionalFeedbackDetails (text): Additional information, context and details provided by the dental office about the Talent and how the shift went.
 
-Note: The Feedback form also has a section that asks the dental office if they would like to a) designate the Talent as a Favourite, b) Block that Talent from viewing future shifts, or c) indicate they were just pleased with the Talent but don’t want to Favourite or Block.  The details of this response by the office are found in the Job.hygienistFeedback column, JOINED by Job.id ON Feedback.jobId. Job.hygienistFeedback = 2 for Blocked, Job.hygienistFeedback = 5 for Favourite, Job.hygienistFeedback = 4.2 for “pleased”.
+Note: The Feedback form also has a section that asks the dental office if they would like to a) designate the Talent as a Favourite, b) Block that Talent from viewing future shifts, or c) indicate they were just pleased with the Talent but don't want to Favourite or Block.  The details of this response by the office are found in the Job.hygienistFeedback column, JOINED by Job.id ON Feedback.jobId. Job.hygienistFeedback = 2 for Blocked, Job.hygienistFeedback = 5 for Favourite, Job.hygienistFeedback = 4.2 for "pleased".
 
-**<span style="text-decoration:underline;">“Dentist” Table</span>**
+**"Dentist" Table**
 
-**Description:** This is the ‘anchor’ table that links multiple Locations under one login account.  This column doesn’t track a lot of data, but it does track a registration timestamp and a timestamp of when the Dentist ID agreed to updated Terms of Service..
+**Description:** This is the 'anchor' table that links multiple Locations under one login account.  This column doesn't track a lot of data, but it does track a registration timestamp and a timestamp of when the Dentist ID agreed to updated Terms of Service..
 
 **Columns:**
 
@@ -415,9 +416,9 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	newTermsSeenOn (datetime): The timestamp of when that Dentist account saw updated terms of service.
 
-**<span style="text-decoration:underline;">“Location” Table</span>**
+**"Location" Table**
 
-**Description:** Stores details of dental office Locations.  Remember that “Location” refers to a dental office location place of business, and is not the geographic location.  So in this context, “dental office” and “location” are used interchangeably.
+**Description:** Stores details of dental office Locations.  Remember that "Location" refers to a dental office location place of business, and is not the geographic location.  So in this context, "dental office" and "location" are used interchangeably.
 
 **Columns**:
 
@@ -429,7 +430,7 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 •	createdOn (datetime):  The date the Location signed up with TempStars
 
-•	dentistId (int):  Some dentists have multiple locations, so the dentistId is the ‘anchor’ ID for a group of dental offices.  The dentistId would remain the same for multiple location ID’s that are owned by the same owner.  
+•	dentistId (int):  Some dentists have multiple locations, so the dentistId is the 'anchor' ID for a group of dental offices.  The dentistId would remain the same for multiple location ID's that are owned by the same owner.  
 
 
 	•	email (varchar):  The email of the Location
@@ -442,7 +443,7 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	country (int): Indicates the country where the dental office is located (0 = Canada, 1 = United States)
 
-	•	isCentralBooked (int): Indicates if the Location is part of a large dental corporation (aka a ‘DSO’) (0: Not corporate, 1: ‘Dentalcorp’ DSO Corporate location, 2: ‘123Dentist’ Corporate location).
+	•	isCentralBooked (int): Indicates if the Location is part of a large dental corporation (aka a 'DSO') (0: Not corporate, 1: 'Dentalcorp' DSO Corporate location, 2: '123Dentist' Corporate location).
 
 	•	lat(varchar) and lon(varchar): Indicates the latitude and longitude of where the dental office is located.
 
@@ -460,9 +461,9 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 •	vaxRequired (int): Indicates if the dental office has a policy in place that requires employees to be vaccinated against COVID. 
 
-•	deactivated (int): A value of ‘1’ indicates this Location has been deactivated. 
+•	deactivated (int): A value of '1' indicates this Location has been deactivated. 
 
-**<span style="text-decoration:underline;">“Job” Table</span>**
+**"Job" Table**
 
 **Description**: Stores information related to TempStars Temping shifts.  Stores information about  shifts that are posted by dental offices, and the details of the working connection if the shift is booked and/or completed by Talent.  Temping is only for dental hygienists and dental assistants.
 
@@ -470,33 +471,33 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	status (int): The status of the shift (1: Posted, 2: Has one or more offers from Talent to work the shift  3: Booked with a Talent, 4:Completed, 5: Had received Talent offers but all offers expired, 6: Expired - the shift posting was active but went unfilled and was not completed by the startDate, 7: canceled or removed by the dental office).
 
-	•	startDate (date): The actual date the shift is to be worked by Talent.  Formatting is YYYY-MM-DD. **Important note: ** Because Job.startDate is in the “YYYY-MM-DD” format, you often need to convert it to a different format (“YYYY-MM-DD hh:mm:ss”) for data analysis for other fields that use datetime, etc.
+	•	startDate (date): The actual date the shift is to be worked by Talent.  Formatting is YYYY-MM-DD. **Important note: ** Because Job.startDate is in the "YYYY-MM-DD" format, you often need to convert it to a different format ("YYYY-MM-DD hh:mm:ss") for data analysis for other fields that use datetime, etc.
 
 	•	locationId (int): The ID of the dental office Location that posted the temping shift.
 
-	•	hygienistId (int): Indicates the ID of the Talent who is booked for the shift.  Has a value of ‘0’ of the shift is not booked. If the shift is booked, the value in this column is the ID of the Talent booked for the shift (0: not booked, >0: Talent is booked). 
+	•	hygienistId (int): Indicates the ID of the Talent who is booked for the shift.  Has a value of '0' of the shift is not booked. If the shift is booked, the value in this column is the ID of the Talent booked for the shift (0: not booked, >0: Talent is booked). 
 
-	•	dentistRating (int): Review score given by the Talent about the dental office (Note: a value “0” value means the dental office was unrated by the Talent)
+	•	dentistRating (int): Review score given by the Talent about the dental office (Note: a value "0" value means the dental office was unrated by the Talent)
 
-	•	hygienistRating (int): Review score given by the dental office about the Talent  (Note: “0” value means the Talent was unrated by the office).
+	•	hygienistRating (int): Review score given by the dental office about the Talent  (Note: "0" value means the Talent was unrated by the office).
 
 	•	dentistBilled (int): Indicates whether TempStars placement fee was collected (0: not collected, 1: collected, 2: free placement credit was used) for a completed shift.
 
 	•	hourlyRate (decimal): Indicates the hourly rate earned by the Talent working the shift (the value indicates dollars per hour).
 
-	•	postedOn (datetime): Format ‘YY-MM-DD hh:mm:ss’,  Indicates when a temping shift was posted by the dental office to the TempStars temping service.
+	•	postedOn (datetime): Format 'YY-MM-DD hh:mm:ss',  Indicates when a temping shift was posted by the dental office to the TempStars temping service.
 
 	•	type (int): Indicates if the shift requires a Hygienist (0) or Dental Assistant (1).
 
-	•	bookedOn (datetime): Format ‘YY-MM-DD hh:mm:ss’, indicates the timestamp of when the temping shift was booked and confirmed between the dental office and the Talent.
+	•	bookedOn (datetime): Format 'YY-MM-DD hh:mm:ss', indicates the timestamp of when the temping shift was booked and confirmed between the dental office and the Talent.
 
 	•	dentistPrivateNotes (varchar): Indicates any private feedback notes by the dental office made about the Talent who worked the shift
 
 	•	hygienistPrivateNotes (varchar): Indicates any private feedback notes by the Talent made about the dental office where the shift was completed.
 
-	•	paysW2 (int): For shifts posted in the United States, this column indicates the nature of the employment relationship between the dental office and the Talent.  ‘0’ means “1099”, ‘1’ means “W2”, ‘2’ means “Either”.
+	•	paysW2 (int): For shifts posted in the United States, this column indicates the nature of the employment relationship between the dental office and the Talent.  '0' means "1099", '1' means "W2", '2' means "Either".
 
-**<span style="text-decoration:underline;">“User” Table</span>**
+**"User" Table**
 
 **Description**: Stores user information, including email addresses.
 
@@ -506,15 +507,15 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	hygienistId (int): The ID of the Talent associated with the User record.
 
-	•	dentistId (int): The ‘anchor’ ID created when the dental offices signs up.  This is NOT NULL if the User record is related to a dental office location.
+	•	dentistId (int): The 'anchor' ID created when the dental offices signs up.  This is NOT NULL if the User record is related to a dental office location.
 
-	•	platform: Indicates the platform used for signing up (NULL means web, “Android” means Android, iOS means iPhone).
+	•	platform: Indicates the platform used for signing up (NULL means web, "Android" means Android, iOS means iPhone).
 
-	•	referredBy (int): This column identifies the User.id of the user that referred the current user record to the platform.  For example:  If User.id ‘5678’ has a User.referredBy value of ‘1234’, then this means that User ‘5678’ was referred by User ‘1234’.
+	•	referredBy (int): This column identifies the User.id of the user that referred the current user record to the platform.  For example:  If User.id '5678' has a User.referredBy value of '1234', then this means that User '5678' was referred by User '1234'.
 
-**<span style="text-decoration:underline;">“PartialOffer” Table</span>**
+**"PartialOffer" Table**
 
-**Description:** Talent submit ‘Offers’ to work temping shifts posted by Dental Offices.  The PartialOffer  table stores details of offers made by Talent for those temping shifts.
+**Description:** Talent submit 'Offers' to work temping shifts posted by Dental Offices.  The PartialOffer  table stores details of offers made by Talent for those temping shifts.
 
 **Columns:**
 
@@ -541,7 +542,7 @@ Note: The Feedback form also has a section that asks the dental office if they w
 	•	modifiedOn (datetime): Talent can modify the hours of a shift offer, and this is the timestamp of when that is modified. .
 
 
-**<span style="text-decoration:underline;">“DentistCancelled” Table</span>**
+**"DentistCancelled" Table**
 
 **Description**: Sometimes dental offices cancel a shift that is booked.  The DentistCancelled table tracks the details when dental offices cancel a shift.
 
@@ -559,7 +560,7 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	details (varchar): When cancelling a shift, there is a text area for the dental office to enter details and reason about the cancellation.
 
-**<span style="text-decoration:underline;">“Shift” Table</span>**
+**"Shift" Table**
 
 **Description**: This table provides additional information about the posted temping shift.
 
@@ -573,9 +574,9 @@ Note: The Feedback form also has a section that asks the dental office if they w
 
 	•	postedEnd (datetime): The date and time of when the shift is scheduled to end.
 
-	•	autobook (int): Indicates if the shift was booked via the “autobook” feature (= 1 if booked via autobook)
+	•	autobook (int): Indicates if the shift was booked via the "autobook" feature (= 1 if booked via autobook)
 
-<span style="text-decoration:underline;">"HygienistReliabilityScore" Table</span>
+"HygienistReliabilityScore" Table
 Description: This table contains data related to Talent reliability for temping shifts. The Reliability Score and associated values are determined by the number of shifts a Talent completes, the number of shifts they have cancelled, and the timing of those cancellations. A high reliability score indicates good performance, while a low score indicates poor performance. These values are updated as Talent completes shifts and when they cancel shifts.
 Columns:
 hygienistId (int): The ID of the Talent record. HygienistReliabilityScore.hygienistId <JOIN> Hygienist.id
@@ -585,7 +586,7 @@ recentReliability (float): A calculated value similar to 'overallReliability' bu
 weightedReliability (float): A calculated weighted combination of 'recent' and 'overall' reliability, with more weighting given to more recent activities. The formula is [(0.3 * overallReliability) + (0.7 * recentReliability)] to give an overall weighted score, favoring the Talent's most recent shift reliability. weightedReliability is used to manage the Talent membership - rewarding high reliability and taking steps to protect from poor reliability.
 
 
-**<span style="text-decoration:underline;">“HygienistCancelled” Table</span>**
+**"HygienistCancelled" Table**
 
 **Description**: Sometimes Talent cancels a temping shift that is booked.  The HygienistCancelled table tracks the details when Talent cancels a temping shift.
 
@@ -595,7 +596,7 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	cancelTimestamp (datetime): Indicates when the shift was canceled by the Talent.
 
-	•	rebookedBy (int): Indicates whether the shift was successfully rebooked by another Talent to work the shift.  The value is ‘0’ if the shift was not rebooked, and if the value is >0, that value is the Hygienist ID of the talent that rebooked the shift.
+	•	rebookedBy (int): Indicates whether the shift was successfully rebooked by another Talent to work the shift.  The value is '0' if the shift was not rebooked, and if the value is >0, that value is the Hygienist ID of the talent that rebooked the shift.
 
 	•	hygienistId (int): Indicates the ID of the Talent who canceled the shift (ie. JOIN Hygienist ON Hygienist.id = HygienistCancelled.hygienistId)
 
@@ -603,11 +604,11 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	details (varchar): There is a text area where the Talent can provide further details and reason about the cancellation.
 
-	•	isGracePeriodCancellation(int): This indicates if the cancellation fell within the ‘grace period’.  The grace period means the shift was cancelled within 24hrs of booking and the shift start date is more than 30 days away.  Grace period cancellation do not affect reliability scores.  There are a maximum of 3 grace periods per year for a Talent.
+	•	isGracePeriodCancellation(int): This indicates if the cancellation fell within the 'grace period'.  The grace period means the shift was cancelled within 24hrs of booking and the shift start date is more than 30 days away.  Grace period cancellation do not affect reliability scores.  There are a maximum of 3 grace periods per year for a Talent.
 
-**<span style="text-decoration:underline;">“BlockedDentist” Table</span>**
+**"BlockedDentist" Table**
 
-**Description:** Sometimes a Talent has such a bad experience working at a shift that they don’t want to see the dental office’s future shift postings.  This table tracks the details of that ‘blocking’.
+**Description:** Sometimes a Talent has such a bad experience working at a shift that they don't want to see the dental office's future shift postings.  This table tracks the details of that 'blocking'.
 
 **Columns:**
 
@@ -615,7 +616,7 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	hygienistId (int): The ID of the Talent who was unhappy with the dental office (ie. JOIN Hygienist ON Hygienist.id = BlockedDentist.hygienistID).
 
-**<span style="text-decoration:underline;">RoleMapping” Table</span>**
+**"RoleMapping" Table**
 
 **Description:** This table tracks the roles of all users based on role codes, and joins to the User table.
 
@@ -625,9 +626,9 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	roleId (int): Differentiates between the role of the User (4: Dental Office, 6: Hygienist, 7: Dental Assistant, 8: Admin front desk, 9: Associate Dentist).
 
-**<span style="text-decoration:underline;">“BlockedHygienist” Table</span>**
+**"BlockedHygienist" Table**
 
-**Description:** Sometimes a dental office is so unhappy with a Talent that the office doesn’t want the Talent working at their office again.  This table tracks the details of that ‘blocking’, and indicates which Talent are unable to view temping shift postings from which locations.
+**Description:** Sometimes a dental office is so unhappy with a Talent that the office doesn't want the Talent working at their office again.  This table tracks the details of that 'blocking', and indicates which Talent are unable to view temping shift postings from which locations.
 
 **Columns:**
 
@@ -635,9 +636,9 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	locationId (int): The ID of the dental office that is blocking the specific Talent.
 
-**<span style="text-decoration:underline;">“hireJob” Table</span>**
+**"hireJob" Table**
 
-**Description:** TempStars has a Job Board for permanent and contract hiring which operates similar to classified ads or “Indeed” service.  Dental offices post a Job for a permanent or contract position.  Candidates submit their application to the Job Board posting, then it is up to the dental office to contact the candidate, arrange interviews and hire them to the team.  The “hireJob” table tracks the records relating to the Job Board posting done by the dental office. Note: While most tables in the database have a capitalized first letter, the “hireJob” table name begins with a lowercase ‘h’.
+**Description:** TempStars has a Job Board for permanent and contract hiring which operates similar to classified ads or "Indeed" service.  Dental offices post a Job for a permanent or contract position.  Candidates submit their application to the Job Board posting, then it is up to the dental office to contact the candidate, arrange interviews and hire them to the team.  The "hireJob" table tracks the records relating to the Job Board posting done by the dental office. Note: While most tables in the database have a capitalized first letter, the "hireJob" table name begins with a lowercase 'h'.
 
 **Columns:**
 
@@ -651,7 +652,7 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	createdOn (timestamp): Indicates the date when the dental office posted the job to the Job Board.
 
-**<span style="text-decoration:underline;">“AboutMeInput” Table</span>**
+**"AboutMeInput" Table**
 
 **Description:** Talent can write a short cover letter for their profile.  This table tracks what the Talent input into the About Me text field.
 
@@ -663,9 +664,9 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 	•	submissionTimestamp (datetime): The timestamp of when the About Me was inputted by the Talent.
 
-**<span style="text-decoration:underline;">“JobApplications” Table</span>**
+**"JobApplications" Table**
 
-**Description:** TempStars has a Job Board for permanent and contract hiring, which operates similar to classified ads or “Indeed”.  Dental offices post a Job for a permanent or contract position.  The “JobApplications” table tracks the status of applications that candidates submit to the dental office’s Job Board posting.
+**Description:** TempStars has a Job Board for permanent and contract hiring, which operates similar to classified ads or "Indeed".  Dental offices post a Job for a permanent or contract position.  The "JobApplications" table tracks the status of applications that candidates submit to the dental office's Job Board posting.
 
 **Columns:**
 
@@ -679,13 +680,13 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 •	status (int): Indicates the status of the candidate application. (0: submitted, 1: application was viewed, 2: Candidate resume was open/viewed 3: The office opted to reveal their contact details to the Talent, 4: application removed by candidate).
 
-	•	interviewStatus (int): Indicates if the candidate’s application is designated for an interview. (0: not viewed, 1: viewed, 2: interview scheduled, 3: missed interview).
+	•	interviewStatus (int): Indicates if the candidate's application is designated for an interview. (0: not viewed, 1: viewed, 2: interview scheduled, 3: missed interview).
 
 	•	resumeViewedOn (timestamp): Indicates the datetime when the dental office first viewed the candidate application.
 
-**<span style="text-decoration:underline;">“Invoice” Table</span>**
+**"Invoice" Table**
 
-**Description:** After a temping shift, Talent create and send an invoice to the dental office where they worked, so they can be paid by the dental office for work performed.  The “Invoice” table describes the details of Invoices created by Talent and sent to Dental Offices after a shift is completed.  This accounts for hours worked by the Talent, combined with their hourly rate and any unpaid time.
+**Description:** After a temping shift, Talent create and send an invoice to the dental office where they worked, so they can be paid by the dental office for work performed.  The "Invoice" table describes the details of Invoices created by Talent and sent to Dental Offices after a shift is completed.  This accounts for hours worked by the Talent, combined with their hourly rate and any unpaid time.
 
 **Columns:**
 
@@ -695,13 +696,13 @@ weightedReliability (float): A calculated weighted combination of 'recent' and '
 
 •	totalHours:  The number of hours from the start to end of the temping shift.
 
-	•	totalUnpaidHours: The number of hours that were considered “unpaid time” during the shift, which could be lunch, breaks, etc.
+	•	totalUnpaidHours: The number of hours that were considered "unpaid time" during the shift, which could be lunch, breaks, etc.
 
-	•	totalBillableHours:  This is the ‘totalHours’ minus ‘totalUnpaidHours’ which constitute the number of billable hours worked by the talent during the shift.
+	•	totalBillableHours:  This is the 'totalHours' minus 'totalUnpaidHours' which constitute the number of billable hours worked by the talent during the shift.
 
 •	hourlyRate:  The dollar per hour amount earned by the Talent during the shift.
 
-	•	totalInvoiceAmt:  This is the total amount invoiced to the dental office by the Talent, and is ‘totalBillableHours’ multiplied by ‘hourlyRate’.
+	•	totalInvoiceAmt:  This is the total amount invoiced to the dental office by the Talent, and is 'totalBillableHours' multiplied by 'hourlyRate'.
 
 	•	createdOn (datetime): This is the timestamp of when the invoice was created.
 

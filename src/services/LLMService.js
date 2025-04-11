@@ -185,7 +185,7 @@ const makeRequest = async (promptString, imageFiles = [], retryCount = 0) => {
   }
 };
 
-const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [], uploadedImages = [], uploadedVideos = [] }) => {
+const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', referenceFiles = [], uploadedImages = [] /* , uploadedVideos = [] */ }) => {
   const startTime = Date.now();
   try {
     // Extract model name from the API URL
@@ -217,16 +217,18 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
       uploadedImages = uploadedImages ? [uploadedImages] : [];
     }
     
+    /* Comment out video validation
     if (!Array.isArray(uploadedVideos)) {
       console.warn('Warning: uploadedVideos is not an array, converting to array');
       uploadedVideos = uploadedVideos ? [uploadedVideos] : [];
     }
+    */
 
     console.log(`- Number of Jira tickets: ${jiraTickets.length}`);
     console.log(`- Concatenated files size: ${concatenatedFiles.length} characters`);
     console.log(`- Reference files included: ${referenceFiles.length}`);
     console.log(`- Image files included: ${uploadedImages.length}`);
-    console.log(`- Video files included: ${uploadedVideos.length}`);
+    // console.log(`- Video files included: ${uploadedVideos?.length || 0}`);
     console.log('-------------------------------------');
 
     // Upload image files to Gemini if needed
@@ -268,6 +270,7 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
       }
     }
     
+    /* Comment out video upload functionality
     // Upload video files to Gemini if needed
     let geminiVideoFiles = [];
     if (uploadedVideos.length > 0) {
@@ -306,6 +309,9 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
         throw new Error(`Failed to upload videos to Gemini: ${error.message}`);
       }
     }
+    */
+    // Initialize an empty array for geminiVideoFiles since we disabled the video upload feature
+    const geminiVideoFiles = [];
 
     console.log('🚀 Preparing LLM API call...');
     let promptString = generateSystemPrompt({
@@ -313,7 +319,7 @@ const generateCodeReview = async ({ jiraTickets = [], concatenatedFiles = '', re
       concatenatedFiles,
       referenceFiles,
       designImages: uploadedImages,
-      uploadedVideos
+      // uploadedVideos: [] // Pass empty array instead of uploadedVideos
     });
 
     // Add explicit section requirements
@@ -332,7 +338,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     console.log(`- Total length: ${promptString.length} characters`);
     console.log(`- Estimated tokens: ~${estimatedTokens}`);
     console.log(`- Images: ${geminiImageFiles.length}`);
-    console.log(`- Videos: ${geminiVideoFiles.length}`);
+    // console.log(`- Videos: ${geminiVideoFiles.length}`);
 
     if (estimatedTokens > MAX_PROMPT_TOKENS) {
       throw new Error(`Prompt too large (${estimatedTokens} tokens). Maximum allowed is ${MAX_PROMPT_TOKENS} tokens.`);
@@ -344,7 +350,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     console.log('🤖 Calling Gemini API...');
     console.log(`- Model: ${modelName}`);
     console.log(`- Temperature: ${GEMINI_CONFIG.temperature}`);
-    console.log(`- Using ${geminiImageFiles.length} image files and ${geminiVideoFiles.length} video files`);
+    console.log(`- Using ${geminiImageFiles.length} image files and 0 video files`);
     
     // Build the contents array with media files interspersed
     let contents = [];
@@ -353,7 +359,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
     contents.push({ text: promptString });
     
     // Add images and videos if present
-    if (geminiImageFiles.length > 0 || geminiVideoFiles.length > 0) {
+    if (geminiImageFiles.length > 0) {
       contents.push({ text: "\n\nAnalyze these media files in relation to the Jira ticket implementation:" });
       
       // Add image files
@@ -366,6 +372,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
         });
       }
       
+      /* Comment out video file addition to contents array
       // Add video files
       for (const videoFile of geminiVideoFiles) {
         contents.push({
@@ -375,6 +382,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
           }
         });
       }
+      */
     }
     
     // Make the API call
@@ -408,6 +416,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
         }
       }
       
+      /* Comment out video file cleanup
       // Clean up video files
       for (const videoFile of geminiVideoFiles) {
         try {
@@ -419,6 +428,7 @@ Each section is required and must maintain this exact naming. Do not skip any se
           console.warn(`⚠️ Failed to delete video file ${videoFile.name}:`, error.message);
         }
       }
+      */
     } catch (error) {
       console.warn('⚠️ Error during file cleanup:', error.message);
     }
