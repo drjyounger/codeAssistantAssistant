@@ -24,9 +24,6 @@ const MAX_PROMPT_TOKENS = 1800000;
 const uploadFileToGemini = async (filePath) => {
   try {
     const fileContent = await fs.readFile(filePath);
-    const formData = new FormData();
-    
-    // Get file information
     const fileName = path.basename(filePath);
     const ext = path.extname(fileName).toLowerCase();
     
@@ -44,25 +41,17 @@ const uploadFileToGemini = async (filePath) => {
       mimeType = 'application/octet-stream';
     }
     
-    // Add file to form data
-    formData.append('file', fileContent, {
-      filename: fileName,
-      contentType: mimeType
-    });
+    // Convert file to base64
+    const base64Data = fileContent.toString('base64');
     
-    // Upload to Gemini
-    const response = await axios.post(
-      `${GEMINI_FILE_UPLOAD_URL}?key=${GEMINI_API_KEY}`,
-      formData,
-      {
-        headers: formData.getHeaders(),
-      }
-    );
-    
-    // Return file metadata from response
-    return response.data.file;
+    // Return file data structure for Gemini API
+    return {
+      name: fileName,
+      mime_type: mimeType,
+      uri: base64Data
+    };
   } catch (error) {
-    console.error('Error uploading file to Gemini:', error);
+    console.error('Error processing file for Gemini:', error);
     throw error;
   }
 };
@@ -365,9 +354,9 @@ Each section is required and must maintain this exact naming. Do not skip any se
       // Add image files
       for (const imageFile of geminiImageFiles) {
         contents.push({
-          file_data: {
-            file_uri: imageFile.uri,
-            mime_type: "image/jpeg" // Assuming most images will be JPEG
+          inline_data: {
+            mime_type: "image/jpeg",
+            data: imageFile.uri.split('base64,')[1] || imageFile.uri
           }
         });
       }
@@ -388,7 +377,12 @@ Each section is required and must maintain this exact naming. Do not skip any se
     // Make the API call
     const apiStartTime = Date.now();
     const response = await axios.post(GEMINI_API_URL, {
-      contents: contents,
+      contents: [
+        {
+          role: "user",
+          parts: contents
+        }
+      ],
       generationConfig: GEMINI_CONFIG
     }, {
       headers: {
@@ -404,31 +398,11 @@ Each section is required and must maintain this exact naming. Do not skip any se
     const cleanupStartTime = Date.now();
     
     try {
-      // Clean up image files
-      for (const imageFile of geminiImageFiles) {
-        try {
-          await axios.delete(`https://generativelanguage.googleapis.com/v1beta/files/${imageFile.name.split('/')[1]}`, {
-            params: { key: GEMINI_API_KEY }
-          });
-          console.log(`🧹 Deleted image file: ${imageFile.name}`);
-        } catch (error) {
-          console.warn(`⚠️ Failed to delete image file ${imageFile.name}:`, error.message);
-        }
-      }
-      
-      /* Comment out video file cleanup
-      // Clean up video files
-      for (const videoFile of geminiVideoFiles) {
-        try {
-          await axios.delete(`https://generativelanguage.googleapis.com/v1beta/files/${videoFile.name.split('/')[1]}`, {
-            params: { key: GEMINI_API_KEY }
-          });
-          console.log(`🧹 Deleted video file: ${videoFile.name}`);
-        } catch (error) {
-          console.warn(`⚠️ Failed to delete video file ${videoFile.name}:`, error.message);
-        }
-      }
-      */
+      // Clean up local temp files if needed
+      const uploadsDir = path.join(__dirname, '../../temp-uploads');
+      // Note: You may want to implement a cleanup for temporary files here
+      // based on your application requirements
+      console.log('✅ Media files processed in memory, no need for remote cleanup');
     } catch (error) {
       console.warn('⚠️ Error during file cleanup:', error.message);
     }
